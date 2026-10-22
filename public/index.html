@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Noticiero VOID — VOID TERMINAL</title>
+  <meta name="description" content="Noticiero VOID: bilingual (English/Español) macro, crypto and markets intelligence terminal. See the signal before the market moves.">
+  <meta name="theme-color" content="#07070a">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <header class="top">
+    <div class="top-row">
+      <a class="brand" href="#/" aria-label="Noticiero VOID home">
+        <img src="/assets/logo.svg" alt="" width="34" height="34">
+        <span class="brand-t"><b>NOTICIERO VOID</b><small>VOID TERMINAL</small></span>
+      </a>
+      <p class="tagline" id="tagline"></p>
+      <div class="top-tools">
+        <span class="conn" id="conn" title="Connection status"><i></i><span></span></span>
+        <div class="lang" role="group" aria-label="Language">
+          <button data-lang="en">EN</button><button data-lang="es">ES</button>
+        </div>
+        <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+      </div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Main"></nav>
+    <div class="ticker" id="ticker" aria-label="Market strip"></div>
+  </header>
+  <div id="adTop" class="ad-top"></div>
+  <main id="app" tabindex="-1"></main>
+  <footer class="foot">
+    <div class="foot-in">
+      <div><img src="/assets/logo.svg" alt="" width="22" height="22"> <b>NOTICIERO VOID</b> · <span id="footTag"></span></div>
+      <p id="disclaimer" class="muted"></p>
+      <p class="muted small">Data: FRED (St. Louis Fed), U.S. Treasury FiscalData, Federal Reserve, ECB, BEA, CoinGecko, DefiLlama, GeckoTerminal, OKX, Solana RPC and publisher RSS feeds. Headlines link to the original publishers. Keyboard: <kbd>g</kbd> then <kbd>t</kbd>/<kbd>m</kbd>/<kbd>n</kbd>/<kbd>c</kbd> to jump · <kbd>/</kbd> search.</p>
+    </div>
+  </footer>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

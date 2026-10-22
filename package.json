@@ -1,0 +1,20 @@
+{
+  "name": "noticiero-void",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Noticiero VOID / VOID TERMINAL - bilingual (EN/ES) financial intelligence platform on Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js",
+    "db:migrate:local": "wrangler d1 migrations apply noticiero-void --local",
+    "db:migrate:remote": "wrangler d1 migrations apply noticiero-void --remote"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.152.0"
+  }
+}

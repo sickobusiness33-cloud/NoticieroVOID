@@ -1,0 +1,55 @@
+name = "noticiero-void"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static SPA served from ./public. API routes (/api/*) run the Worker first.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/", "/index.html"]
+
+[observability]
+enabled = true
+
+# News ingestion every 15 minutes; AI briefing pre-generation every 6 hours.
+[triggers]
+crons = ["*/15 * * * *", "5 */6 * * *"]
+
+[vars]
+AI_MODEL = "claude-opus-5-5"
+AI_EFFORT = "medium"
+# Coinzilla: paste your zone IDs (the part after "C-") and the site-verification code.
+COINZILLA_ZONE_LEADERBOARD = ""
+COINZILLA_ZONE_RECTANGLE = ""
+COINZILLA_ZONE_MOBILE = ""
+COINZILLA_STICKY_ZONE = ""
+COINZILLA_VERIFICATION = ""
+
+# ---- Optional bindings (uncomment after creating them; see README) ----------------
+# KV cache: npx wrangler kv namespace create CACHE
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<your-kv-namespace-id>"
+
+# D1 news archive: npx wrangler d1 create noticiero-void
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "noticiero-void"
+# database_id = "<your-d1-database-id>"
+# migrations_dir = "migrations"
+
+# Global rate limit for AI endpoints (Workers Rate Limiting API)
+# [[ratelimits]]
+# name = "RATE_LIMITER"
+# namespace_id = "1001"
+#   [ratelimits.simple]
+#   limit = 10
+#   period = 60
+
+# Secrets (never put these in this file):
+#   npx wrangler secret put ANTHROPIC_API_KEY
+#   npx wrangler secret put FRED_API_KEY        (optional: enables release calendar)
+#   npx wrangler secret put COINGECKO_API_KEY   (optional)
+#   npx wrangler secret put ADMIN_TOKEN         (protects POST /api/admin/ingest)
