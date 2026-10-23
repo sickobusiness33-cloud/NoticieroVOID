@@ -52,7 +52,8 @@ export async function upstream(provider, url, opts = {}) {
     } catch (err) {
       lastErr = err;
       if (err.final || attempt === retries) break;
-      await new Promise((r) => setTimeout(r, (retryOn.length ? 1200 : 300) * 2 ** attempt + Math.random() * 300));
+      // Rate limits (429) need a longer pause than transient 5xx errors.
+      await new Promise((r) => setTimeout(r, (retryOn.length || err.status === 429 ? 1200 : 300) * 2 ** attempt + Math.random() * 300));
     }
   }
   recordHealth(provider, false, { error: lastErr?.message });

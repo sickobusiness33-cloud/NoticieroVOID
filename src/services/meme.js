@@ -2,7 +2,7 @@
 // providers, then applies the transparent rule set in shared/regime.js. Any provider that
 // fails simply removes its inputs; the classifier reports INSUFFICIENT_DATA rather than guess.
 
-import { markets, history, dexVolume, stablecoinChain, solanaPools, solanaFees } from '../adapters/crypto.js';
+import { sharedMarkets, history, dexVolume, stablecoinChain, solanaPools, solanaFees } from '../adapters/crypto.js';
 import { cached } from '../lib/core.js';
 import { memeRegime, MEME_DEFAULT_RULES } from '../../public/js/shared/regime.js';
 import { pctReturns, std } from '../../public/js/shared/stats.js';
@@ -16,7 +16,7 @@ export async function memeState(env, rulesOverride) {
     catch (e) { providers[name] = { ok: false, error: e.message }; return null; }
   };
   const [mk, solHist, dex, stables, trending, fresh, fees] = await Promise.all([
-    get('coingecko', 'cg:markets', 120, () => markets(env)),
+    get('coingecko', 'cg:markets:v2', 180, async () => (await sharedMarkets(env)).value),
     get('coingecko-history', 'cg:hist:solana:365', 6 * 3600, () => history(env, 'solana', 365)),
     get('defillama-dex', 'llama:dex:solana', 1800, () => dexVolume('solana')),
     get('defillama-stablecoins', 'llama:stables:Solana', 3600, () => stablecoinChain('Solana')),

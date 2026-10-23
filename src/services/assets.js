@@ -2,7 +2,7 @@
 // recent change and a typical one-period move (1σ) for every asset in the universe.
 
 import { UNIVERSE, typicalMove } from '../../public/js/shared/impact.js';
-import { markets } from '../adapters/crypto.js';
+import { markets, sharedMarkets } from '../adapters/crypto.js';
 import { STATUS_BY_FREQ } from '../adapters/fred.js';
 import { cached } from '../lib/core.js';
 import { series } from './macro.js';
@@ -14,9 +14,15 @@ export async function universe(env) {
 }
 
 async function build(env) {
-  const cgIds = UNIVERSE.filter((a) => a.src === 'cg').map((a) => a.ref).join(',');
-  const [cg, ...fred] = await Promise.allSettled([
-    markets(env, cgIds, { sparkline: true, perPage: 50 }),
+  const cg = await Promise.allSettled([(async () => {
+    const top = (await sharedMarkets(env)).value;
+    // Only coins outside the shared top-100 list cost an extra request.
+    const missing = UNIVERSE.filter((a) => a.src === 'cg' && !top.some((c) => c.id === a.ref)).map((a) => a.ref);
+    if (!missing.length) return top;
+    const extra = await cached(env, `cg:extra:${missing.join(',')}`, 600, () => markets(env, missing.join(','), { sparkline: true, perPage: 50 })).then((r) => r.value).catch(() => []);
+    return [...top, ...extra];
+  })()]).then(([r]) => r);
+  const fred = await Promise.allSettled([
     ...UNIVERSE.filter((a) => a.src === 'fred').map((a) => series(env, a.ref, new Date(Date.now() - 200 * 86400000).toISOString().slice(0, 10))),
   ]);
   const fredAssets = UNIVERSE.filter((a) => a.src === 'fred');

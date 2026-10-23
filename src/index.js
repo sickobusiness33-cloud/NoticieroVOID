@@ -64,17 +64,17 @@ const routes = {
 
   'GET /api/markets/overview': async (req, env) => {
     const [mk, gl, gold] = await Promise.allSettled([
-      cached(env, 'cg:markets', 120, () => crypto.markets(env)),
+      crypto.sharedMarkets(env),
       cached(env, 'cg:global', 300, () => crypto.globalStats(env)),
-      cached(env, 'cg:paxg', 300, () => crypto.markets(env, 'pax-gold')),
+      cached(env, 'cg:paxg', 600, () => crypto.markets(env, 'pax-gold')),
     ]);
     const tradfiIds = ['SP500', 'NASDAQCOM', 'DJIA', 'VIXCLS', 'DGS2', 'DGS10', 'T10Y2Y', 'DFII10', 'DTWEXBGS', 'DCOILWTICO', 'DFF', 'ECBDFR', 'BAMLH0A0HYM2'];
     const lang = q(new URL(req.url), 'lang', 'en');
     const tradfi = await Promise.allSettled(tradfiIds.map((id) => macro.indicator(env, id, lang)));
     const crypt = mk.status === 'fulfilled' ? mk.value : null;
-    const paxg = gold.status === 'fulfilled' ? gold.value.value.find((c) => c.id === 'pax-gold') : null;
+    const paxg = (mk.status === 'fulfilled' && mk.value.value.find((c) => c.id === 'pax-gold')) || (gold.status === 'fulfilled' ? gold.value.value.find((c) => c.id === 'pax-gold') : null);
     return json({
-      crypto: crypt ? { rows: crypt.value, meta: meta({ source: 'CoinGecko', sourceUrl: 'https://www.coingecko.com', status: 'delayed', frequency: '~1–2 min', unit: 'USD', cachedAt: crypt.cachedAt, stale: crypt.stale, note: 'Aggregated spot prices; cached up to 2 minutes.' }) } : { rows: [], meta: { status: 'unavailable', error: mk.reason?.message } },
+      crypto: crypt ? { rows: crypto.withoutSparkline(crypt.value).slice(0, 50), meta: meta({ source: 'CoinGecko', sourceUrl: 'https://www.coingecko.com', status: 'delayed', frequency: '~1–2 min', unit: 'USD', cachedAt: crypt.cachedAt, stale: crypt.stale, note: 'Aggregated spot prices; cached up to 2 minutes.' }) } : { rows: [], meta: { status: 'unavailable', error: mk.reason?.message } },
       global: gl.status === 'fulfilled' ? { ...gl.value.value, meta: meta({ source: 'CoinGecko', sourceUrl: 'https://www.coingecko.com/en/global-charts', status: 'delayed', unit: 'USD', cachedAt: gl.value.cachedAt, stale: gl.value.stale }) } : { meta: { status: 'unavailable', error: gl.reason?.message } },
       tradfi: tradfi.map((r, i) => (r.status === 'fulfilled' ? r.value : { id: tradfiIds[i], meta: { status: 'unavailable', error: r.reason?.message } })),
       goldProxy: paxg ? { price: paxg.price, change24h: paxg.change24h, meta: { status: 'estimated', source: 'CoinGecko (PAX Gold token)', note: 'PAXG is a gold-backed token used as a proxy. It is NOT the LBMA/COMEX spot price and can deviate from it.' } } : { meta: { status: 'unavailable', note: 'No free official real-time gold price source is integrated.' } },
@@ -226,7 +226,7 @@ async function generateBriefing(env, lang, question = null) {
     Promise.allSettled(indIds.map((id) => macro.indicator(env, id, 'en'))),
     macro.regime(env).catch(() => null),
     news.latest(env).then((r) => r.value.items).catch(() => []),
-    cached(env, 'cg:markets', 120, () => crypto.markets(env)).then((r) => r.value.slice(0, 6)).catch(() => []),
+    crypto.sharedMarkets(env).then((r) => crypto.withoutSparkline(r.value.slice(0, 6))).catch(() => []),
     macro.netLiq(env).catch(() => null),
     calendar(env, { from: new Date().toISOString().slice(0, 10) }).then((c) => c.events).catch(() => []),
   ]);

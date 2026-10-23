@@ -2,7 +2,7 @@
 // GeckoTerminal (Solana pools), Solana JSON-RPC (fees) and OKX (funding / open interest).
 // All public endpoints; an optional COINGECKO_API_KEY (demo or pro) raises limits.
 
-import { upstream } from '../lib/core.js';
+import { upstream, cached } from '../lib/core.js';
 
 function cg(env, path) {
   const pro = env.COINGECKO_API_KEY && env.COINGECKO_PLAN === 'pro';
@@ -24,6 +24,15 @@ export async function markets(env, ids, { sparkline = false, perPage = 50 } = {}
     sparkline: sparkline ? c.sparkline_in_7d?.price || null : undefined,
   }));
 }
+
+// One shared CoinGecko request (top 100 with 7d sparklines) serves the ticker, the
+// command center, the memecoin page and the article asset table. The free API rate-limits
+// shared Cloudflare egress IPs, so every extra call matters.
+export async function sharedMarkets(env) {
+  return cached(env, 'cg:markets:v2', 180, () => markets(env, null, { sparkline: true, perPage: 100 }));
+}
+
+export const withoutSparkline = (rows) => rows.map(({ sparkline, ...r }) => r);
 
 export async function globalStats(env) {
   const { data } = await cg(env, '/global');
