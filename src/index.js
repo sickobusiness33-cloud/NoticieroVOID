@@ -11,6 +11,7 @@ import { memeState } from './services/meme.js';
 import { liquidityLab } from './services/liquidity.js';
 import * as ai from './services/ai.js';
 import { universe } from './services/assets.js';
+import { scanner } from './services/memescan.js';
 import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -132,6 +133,7 @@ const routes = {
     });
   },
 
+  'GET /api/meme/scanner': async (req, env) => json(await scanner(env)),
   'GET /api/meme/regime': async (req, env) => json(await memeState(env)),
   'POST /api/meme/regime': async (req, env) => {
     const body = await readJson(req);

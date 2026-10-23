@@ -21,7 +21,7 @@ A bilingual (English first, full Spanish) financial-intelligence newsroom and te
 | Calendar | `#/calendar` | FOMC & ECB decisions, Treasury auctions, BLS/BEA releases with previous/actual; consensus deliberately blank | Fed/ECB calendars, FiscalData, FRED releases |
 | Liquidity Lab | `#/liquidity` | Fed net liquidity (measured), TGA, RRP, reserves, ECB/BoJ assets, M2, SOFR, real yields, dollar, stablecoins; documented composite score + sensitivity | FRED, DefiLlama |
 | Crypto Macro | `#/crypto-macro` | Correlations with significance bounds, rolling correlation, realized vol, conditional returns, FOMC event study, lead–lag, stablecoins/TVL | CoinGecko, FRED, DefiLlama |
-| Memecoins | `#/memecoins` | FAVORABLE / SELECTIVE / HIGH RISK / DEFENSIVE regime from configurable rules, Solana DEX volume, stablecoins, fees, trending and new pools | CoinGecko, DefiLlama, GeckoTerminal, Solana RPC |
+| Meme Terminal | `#/memecoins` | Live Solana scanner (60 s polling): new launches, pump.fun, trending 5m/1h; momentum score, activity signals (rocket launch, volume surge, buy pressure, breakout, near graduation), contract checks (mint/freeze authority, honeypot, dev %, top-10 holders), risk level, on-page/browser/sound alerts for new signals, memecoin news, market regime, ad slots | GeckoTerminal, news feeds, CoinGecko, DefiLlama |
 | Quant Lab | `#/lab` | Causal backtests (SMA cross, RSI, momentum, breakout, buy & hold), costs/slippage, optional macro filter with publication lag, 70/30 split, walk-forward, trade list, CSV/JSON export, saved experiments | CoinGecko |
 | Data Status | `#/status` | Provider health, feed status, configuration | — |
 

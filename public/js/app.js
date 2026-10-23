@@ -5,12 +5,13 @@ import { configureAds, adSlot, stickyAd } from './ads.js';
 import * as V from './views.js';
 import * as V2 from './views2.js';
 import * as P from './paper.js';
+import { memeTerminal } from './memeterm.js';
 
 const ROUTES = [
   ['', 'nav_home', P.front], ['terminal', 'nav_terminal', V.terminal], ['macro', 'nav_macro', V.macro],
   ['news', 'nav_news', V.newsFeed], ['analyst', 'nav_analyst', V.analyst], ['calendar', 'nav_calendar', V.calendarView],
   ['liquidity', 'nav_liquidity', V2.liquidity], ['crypto-macro', 'nav_cryptomacro', V2.cryptoMacro],
-  ['memecoins', 'nav_meme', V2.meme], ['lab', 'nav_lab', V2.lab], ['saved', 'nav_saved', V.saved], ['status', 'nav_status', V.status],
+  ['memecoins', 'nav_meme', memeTerminal], ['lab', 'nav_lab', V2.lab], ['saved', 'nav_saved', V.saved], ['status', 'nav_status', V.status],
   ['article', 'nav_home', P.article, { hidden: true }],
 ];
 
