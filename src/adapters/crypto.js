@@ -28,14 +28,61 @@ export async function markets(env, ids, { sparkline = false, perPage = 50 } = {}
 // One shared CoinGecko request (top 100 with 7d sparklines) serves the ticker, the
 // command center, the memecoin page and the article asset table. The free API rate-limits
 // shared Cloudflare egress IPs, so every extra call matters.
+// If CoinGecko refuses (e.g. HTTP 429 on Cloudflare egress), fall back to CoinPaprika's
+// keyless ticker list. Rows keep the same shape and carry `provider` so the UI can credit
+// the real source. CoinPaprika has no sparkline, so typical-move estimates are omitted then.
 export async function sharedMarkets(env) {
-  return cached(env, 'cg:markets:v2', 180, () => markets(env, null, { sparkline: true, perPage: 100 }));
+  return cached(env, 'cg:markets:v2', 180, async () => {
+    try {
+      return (await markets(env, null, { sparkline: true, perPage: 100 })).map((r) => ({ ...r, provider: 'CoinGecko' }));
+    } catch (err) {
+      // Longer cache: the free CoinPaprika plan allows ~20k calls per month.
+      const r = await cached(env, 'paprika:tickers', 900, () => paprikaTickers());
+      return r.value;
+    }
+  });
+}
+
+// CoinPaprika id → CoinGecko id for the coins the site references by CoinGecko id.
+export const PAPRIKA_TO_CG = {
+  'btc-bitcoin': 'bitcoin', 'eth-ethereum': 'ethereum', 'sol-solana': 'solana', 'xrp-xrp': 'ripple', 'bnb-binance-coin': 'binancecoin',
+  'doge-dogecoin': 'dogecoin', 'ada-cardano': 'cardano', 'link-chainlink': 'chainlink', 'avax-avalanche': 'avalanche-2', 'trx-tron': 'tron',
+  'paxg-pax-gold': 'pax-gold', 'usdt-tether': 'tether', 'usdc-usd-coin': 'usd-coin',
+};
+
+export async function paprikaTickers() {
+  const rows = await upstream('coinpaprika', 'https://api.coinpaprika.com/v1/tickers?quotes=USD', { timeoutMs: 15000, retries: 1 });
+  return mapPaprika(rows);
+}
+
+export function mapPaprika(rows) {
+  const top = rows.filter((c) => c.rank > 0).sort((a, b) => a.rank - b.rank).slice(0, 100);
+  const extra = rows.filter((c) => PAPRIKA_TO_CG[c.id] && !top.includes(c));
+  return [...top, ...extra].map((c) => {
+    const q = c.quotes?.USD || {};
+    const nz = (v) => (Number.isFinite(v) && v !== 0 ? v : null); // CoinPaprika reports 0 for unavailable windows
+    return {
+      id: PAPRIKA_TO_CG[c.id] || c.id, symbol: c.symbol, name: c.name, image: null,
+      price: q.price, marketCap: q.market_cap, volume24h: q.volume_24h,
+      change1h: q.percent_change_1h, change24h: q.percent_change_24h, change7d: nz(q.percent_change_7d), change30d: nz(q.percent_change_30d),
+      lastUpdated: c.last_updated, sparkline: null, provider: 'CoinPaprika',
+    };
+  });
 }
 
 export const withoutSparkline = (rows) => rows.map(({ sparkline, ...r }) => r);
 
 export async function globalStats(env) {
-  const { data } = await cg(env, '/global');
+  let data;
+  try { ({ data } = await cg(env, '/global')); } catch {
+    // Keyless fallback (same approved CoinPaprika source as the price list).
+    const g = await upstream('coinpaprika', 'https://api.coinpaprika.com/v1/global', { retries: 1 });
+    return {
+      totalMarketCap: g.market_cap_usd, totalVolume: g.volume_24h_usd, btcDominance: g.bitcoin_dominance_percentage, ethDominance: null,
+      marketCapChange24h: g.market_cap_change_24h, activeCryptos: g.cryptocurrencies_number,
+      updatedAt: g.last_updated ? new Date(g.last_updated * 1000).toISOString() : null, provider: 'CoinPaprika',
+    };
+  }
   return {
     totalMarketCap: data.total_market_cap?.usd, totalVolume: data.total_volume?.usd,
     btcDominance: data.market_cap_percentage?.btc, ethDominance: data.market_cap_percentage?.eth,

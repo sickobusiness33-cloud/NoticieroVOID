@@ -40,7 +40,7 @@ async function build(env) {
       }
       out[a.id] = {
         value: c.price, unit: 'USD', change: c.change24h, changeUnit: '% 24h', change7d: c.change7d, date: c.lastUpdated,
-        move, status: a.proxy ? 'estimated' : 'delayed', source: 'CoinGecko', sourceUrl: `https://www.coingecko.com/en/coins/${a.ref}`,
+        move, status: a.proxy ? 'estimated' : 'delayed', source: c.provider || 'CoinGecko', sourceUrl: c.provider === 'CoinPaprika' ? 'https://coinpaprika.com' : `https://www.coingecko.com/en/coins/${a.ref}`,
       };
     } else {
       const i = fredAssets.indexOf(a);

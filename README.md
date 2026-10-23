@@ -99,7 +99,7 @@ Cron triggers (in `wrangler.toml`): news ingestion into D1 runs every 15 minutes
 | `ANTHROPIC_API_KEY` | secret | AI Analyst. Without it the AI features return a clear 503 and the rule-based regime still works |
 | `AI_MODEL` / `AI_EFFORT` | var | Defaults `claude-opus-5-5` / `medium`. Server-side refusal fallback is on; set `AI_FALLBACKS=off` to disable |
 | `FRED_API_KEY` | secret | Official FRED API + release calendar. Without it the public FRED CSV is used (throttled, no data-release calendar) |
-| `COINGECKO_API_KEY`, `COINGECKO_PLAN` | secret/var | Higher CoinGecko limits; `pro` unlocks >365 days of history |
+| `COINGECKO_API_KEY`, `COINGECKO_PLAN` | secret/var | Higher CoinGecko limits; `pro` unlocks >365 days of history. Without a key CoinGecko often answers HTTP 429 to Cloudflare; prices and global stats then fall back to **CoinPaprika** (keyless, ~5-min data, credited in the UI). Price history (charts, Quant Lab, correlations) has no keyless fallback |
 | `SOLANA_RPC_URL` | var | Your own Solana RPC (the public endpoint often returns 403 to datacenter IPs) |
 | `ADMIN_TOKEN` | secret | Bearer token for `POST /api/admin/ingest` |
 | `CACHE` | KV binding | Shared cache + stale fallback |
