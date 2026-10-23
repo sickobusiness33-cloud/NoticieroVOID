@@ -10,6 +10,8 @@ import { calendar } from './services/calendar.js';
 import { memeState } from './services/meme.js';
 import { liquidityLab } from './services/liquidity.js';
 import * as ai from './services/ai.js';
+import { universe } from './services/assets.js';
+import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{2,60}$/;
@@ -147,6 +149,19 @@ const routes = {
     });
     return json({ items, feeds: r.value.feedStatus, meta: meta({ source: 'Publisher RSS/Atom feeds', status: 'delayed', frequency: '5 min cache', cachedAt: r.cachedAt, stale: r.stale, note: 'Headlines and short excerpts only; follow links for the full article at the publisher.' }) });
   },
+
+  'GET /api/news/item': async (req, env) => {
+    const id = q(new URL(req.url), 'id');
+    if (!id || !/^[a-f0-9]{20}$/.test(id)) return apiError(400, 'bad_id', 'Invalid article id');
+    const r = await news.latest(env);
+    let item = r.value.items.find((i) => i.id === id);
+    if (!item && env.DB) item = await news.getArchived(env, id);
+    if (!item) return apiError(404, 'not_found', 'Article not found (it may have left the current feed window).');
+    const related = r.value.items.filter((i) => i.id !== id && i.categories.some((c) => item.categories?.includes(c))).slice(0, 8);
+    return json({ item, impact: impactFor(item), related, meta: meta({ source: item.source, sourceUrl: item.url, status: 'delayed', cachedAt: r.cachedAt, stale: r.stale }) });
+  },
+
+  'GET /api/assets/universe': async (req, env) => json(await universe(env)),
 
   'GET /api/news/archive': async (req, env) => {
     const url = new URL(req.url);

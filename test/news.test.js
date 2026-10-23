@@ -62,3 +62,20 @@ test('breaking requires recency', () => {
 test('stripHtml removes scripts', () => {
   assert.equal(stripHtml('<script>alert(1)</script><b>hi</b>'), 'hi');
 });
+
+test('extracts publisher thumbnails from media tags, enclosures or inline <img>', async () => {
+  const { parseFeed: pf } = await import('../public/js/shared/news.js');
+  const xml = `<rss><channel>
+<item><title>A</title><link>https://x.com/a</link><media:content url="https://img.x.com/a.jpg" medium="image"/></item>
+<item><title>B</title><link>https://x.com/b</link><enclosure url="https://img.x.com/b.png" type="image/png"/></item>
+<item><title>C</title><link>https://x.com/c</link><description><![CDATA[<p><img src="https://img.x.com/c.webp" /> text</p>]]></description></item>
+<item><title>D</title><link>https://x.com/d</link><enclosure url="https://x.com/d.mp3" type="audio/mpeg"/><media:content url="http://insecure.com/d.jpg"/></item>
+</channel></rss>`;
+  assert.deepEqual(pf(xml).map((i) => i.image), ['https://img.x.com/a.jpg', 'https://img.x.com/b.png', 'https://img.x.com/c.webp', null]);
+});
+
+test('strips "read the full story" boilerplate from excerpts', async () => {
+  const { parseFeed: pf } = await import('../public/js/shared/news.js');
+  const [i] = pf('<rss><item><title>T</title><link>https://x.com/t</link><description>Real summary here. Read the full story on CryptoSlate Understand more</description></item></rss>');
+  assert.equal(i.excerpt, 'Real summary here.');
+});

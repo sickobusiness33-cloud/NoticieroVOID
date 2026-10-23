@@ -27,7 +27,7 @@ function storyNode(it, { excerpt = true, ai = true } = {}) {
   return h('article', { class: 'story' },
     h('div', { class: 'by' }, it.breaking ? h('span', { class: 'tag hot' }, t('breaking')) : null, it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null,
       h('b', null, it.source), h('span', { title: it.publishedAt }, ago(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase())),
-    h('h3', null, h('a', { href: it.url, target: '_blank', rel: 'noopener' }, it.title)),
+    h('h3', null, h('a', { href: it.id ? `#/article/${it.id}` : it.url }, it.title)),
     excerpt && it.excerpt ? h('p', null, it.excerpt) : null,
     h('div', null, it.categories.filter((c) => c !== 'general').slice(0, 3).map((c) => h('a', { class: 'tag', href: `#/news?category=${c}` }, catName(c))), it.assets.slice(0, 4).map((a) => h('span', { class: 'tag vio' }, a))),
     it.alsoReportedBy?.length ? h('div', { class: 'by' }, `${t('also')}: `, it.alsoReportedBy.slice(0, 4).map((r) => h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.source))) : null,
@@ -35,7 +35,7 @@ function storyNode(it, { excerpt = true, ai = true } = {}) {
     box);
 }
 
-async function analyzeInto(it, box, btn) {
+export async function analyzeInto(it, box, btn) {
   btn.disabled = true;
   box.replaceChildren(h('div', { class: 'loading' }, h('span', { class: 'spin' }), t('loading')));
   try {

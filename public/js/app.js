@@ -4,12 +4,14 @@ import { h, api, fmtUsd, fmtPct, signClass, fmtNum } from './ui.js';
 import { configureAds, adSlot, stickyAd } from './ads.js';
 import * as V from './views.js';
 import * as V2 from './views2.js';
+import * as P from './paper.js';
 
 const ROUTES = [
-  ['', 'nav_home', V.home], ['terminal', 'nav_terminal', V.terminal], ['macro', 'nav_macro', V.macro],
+  ['', 'nav_home', P.front], ['terminal', 'nav_terminal', V.terminal], ['macro', 'nav_macro', V.macro],
   ['news', 'nav_news', V.newsFeed], ['analyst', 'nav_analyst', V.analyst], ['calendar', 'nav_calendar', V.calendarView],
   ['liquidity', 'nav_liquidity', V2.liquidity], ['crypto-macro', 'nav_cryptomacro', V2.cryptoMacro],
   ['memecoins', 'nav_meme', V2.meme], ['lab', 'nav_lab', V2.lab], ['saved', 'nav_saved', V.saved], ['status', 'nav_status', V.status],
+  ['article', 'nav_home', P.article, { hidden: true }],
 ];
 
 export const app = { config: null };
@@ -27,7 +29,7 @@ function renderChrome() {
   document.getElementById('footTag').textContent = t('sub');
   document.getElementById('disclaimer').textContent = t('disclaimer');
   const { route } = parseHash();
-  document.getElementById('nav').replaceChildren(...ROUTES.map(([r, key]) => h('a', { href: `#/${r}`, class: r === route ? 'on' : '', 'aria-current': r === route ? 'page' : null }, t(key))));
+  document.getElementById('nav').replaceChildren(...ROUTES.filter((x) => !x[3]?.hidden).map(([r, key]) => h('a', { href: `#/${r}`, class: r === route ? 'on' : '', 'aria-current': r === route ? 'page' : null }, t(key))));
   document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === getLang()));
 }
 
@@ -46,6 +48,7 @@ async function render() {
     if (seq === renderSeq) main.replaceChildren(h('div', { class: 'error-box' }, e.message));
   }
   document.getElementById('nav').classList.remove('open');
+  window.scrollTo(0, 0);
 }
 
 async function ticker() {

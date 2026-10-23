@@ -2,14 +2,17 @@
 // Optional D1 archive (binding DB) persists items for historical search; inserts are
 // idempotent (primary key = hash of canonical URL) so cron re-runs never duplicate.
 
-import { FEEDS, fetchFeed } from '../adapters/sources.js';
+import { FEEDS, fetchFeed, NO_HOTLINK_IMAGES } from '../adapters/sources.js';
 import { parseFeed, dedupe, enrich, hashId, canonicalUrl } from '../../public/js/shared/news.js';
 import { cached, log } from '../lib/core.js';
 
 export async function collect(env) {
   const results = await Promise.allSettled(FEEDS.map(async (f) => {
     const xml = await fetchFeed(f);
-    return parseFeed(xml).slice(0, 40).map((it) => ({ ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official }));
+    return parseFeed(xml).slice(0, 30).map((it) => ({
+      ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official,
+      image: it.image && !NO_HOTLINK_IMAGES.test(new URL(it.image).host) ? it.image : null,
+    }));
   }));
   const feedStatus = FEEDS.map((f, i) => ({ id: f.id, source: f.source, lang: f.lang, ok: results[i].status === 'fulfilled', count: results[i].value?.length ?? 0, error: results[i].reason?.message }));
   const all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
@@ -20,7 +23,7 @@ export async function collect(env) {
 }
 
 export async function latest(env) {
-  return cached(env, 'news:v1', 300, () => collect(env));
+  return cached(env, 'news:v3', 300, () => collect(env));
 }
 
 export function filterItems(items, { lang, category, asset, country, q, limit = 60, sort = 'relevance' }) {
@@ -65,4 +68,10 @@ export async function searchArchive(env, { q, lang, from, to, limit = 50, offset
   args.push(Math.min(100, Number(limit) || 50), Math.max(0, Number(offset) || 0));
   const { results } = await env.DB.prepare(sql).bind(...args).all();
   return results.map((r) => ({ ...r, categories: r.categories ? r.categories.split(',') : [], assets: r.assets ? r.assets.split(',') : [], countries: r.countries ? r.countries.split(',') : [] }));
+}
+
+export async function getArchived(env, id) {
+  const row = await env.DB.prepare('SELECT id, url, title, excerpt, source, lang, published_at AS publishedAt, categories, assets, countries, official FROM articles WHERE id = ?').bind(id).first();
+  if (!row) return null;
+  return { ...row, official: !!row.official, image: null, alsoReportedBy: [], categories: row.categories ? row.categories.split(',') : [], assets: row.assets ? row.assets.split(',') : [], countries: row.countries ? row.countries.split(',') : [] };
 }

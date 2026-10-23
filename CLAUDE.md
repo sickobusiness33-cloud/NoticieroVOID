@@ -20,7 +20,10 @@ and pushes on its own. Pushing to `main` deploys to production automatically
 ## Project rules (do not break)
 - No fabricated data, consensus forecasts, citations or performance. Unavailable = say so.
 - Every data widget shows status badge, unit, source link, last update (`metaLine`).
-- News: headline + ≤240-char excerpt + link only; no publisher images.
+- News: headline + ≤240-char excerpt + link to the publisher; never reproduce article bodies.
+  Publisher thumbnails from their own RSS feeds may be shown, always credited ("Image: Source"),
+  except hosts in `NO_HOTLINK_IMAGES`. Article pages add only original VOID content (market data,
+  conditional scenarios, AI analysis) and must keep the "Read the full story at …" link.
 - Every user-facing string exists in English and Spanish (`public/js/i18n.js` or `tr(en, es)`).
 - Shared analytics live in `public/js/shared/` and need unit tests in `test/`.
 - Ads only through `public/js/ads.js` (Coinzilla), always labelled Advertisement/Publicidad.

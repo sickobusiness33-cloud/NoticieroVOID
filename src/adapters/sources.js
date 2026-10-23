@@ -8,21 +8,48 @@ export const FEEDS = [
   { id: 'fed-press', source: 'Federal Reserve', url: 'https://www.federalreserve.gov/feeds/press_all.xml', lang: 'en', official: true },
   { id: 'fed-speeches', source: 'Federal Reserve (speeches)', url: 'https://www.federalreserve.gov/feeds/speeches.xml', lang: 'en', official: true },
   { id: 'ecb-press', source: 'European Central Bank', url: 'https://www.ecb.europa.eu/rss/press.html', lang: 'en', official: true },
+  { id: 'ecb-blog', source: 'ECB Blog', url: 'https://www.ecb.europa.eu/rss/blog.html', lang: 'en', official: true },
+  { id: 'boe', source: 'Bank of England', url: 'https://www.bankofengland.co.uk/rss/news', lang: 'en', official: true },
   { id: 'bea', source: 'U.S. BEA', url: 'https://www.bea.gov/rss/rss.xml', lang: 'en', official: true },
-  // Markets & crypto (English)
+  // Markets, macro, commodities, FX (English)
+  { id: 'marketwatch', source: 'MarketWatch', url: 'https://feeds.marketwatch.com/marketwatch/topstories/', lang: 'en' },
+  { id: 'investing', source: 'Investing.com', url: 'https://www.investing.com/rss/news.rss', lang: 'en' },
+  { id: 'investing-commod', source: 'Investing.com (commodities)', url: 'https://www.investing.com/rss/news_11.rss', lang: 'en' },
+  { id: 'economist', source: 'The Economist', url: 'https://www.economist.com/finance-and-economics/rss.xml', lang: 'en' },
+  { id: 'forexlive', source: 'ForexLive', url: 'https://www.forexlive.com/feed/news', lang: 'en' },
+  { id: 'oilprice', source: 'OilPrice.com', url: 'https://oilprice.com/rss/main', lang: 'en' },
+  { id: 'mining', source: 'MINING.COM', url: 'https://www.mining.com/feed/', lang: 'en' },
+  { id: 'bbc-business', source: 'BBC Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml', lang: 'en' },
+  // Crypto (English)
   { id: 'coindesk', source: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', lang: 'en' },
   { id: 'cointelegraph', source: 'Cointelegraph', url: 'https://cointelegraph.com/rss', lang: 'en' },
   { id: 'decrypt', source: 'Decrypt', url: 'https://decrypt.co/feed', lang: 'en' },
   { id: 'theblock', source: 'The Block', url: 'https://www.theblock.co/rss.xml', lang: 'en' },
   { id: 'cryptobriefing', source: 'Crypto Briefing', url: 'https://cryptobriefing.com/feed/', lang: 'en' },
-  { id: 'bbc-business', source: 'BBC Business', url: 'https://feeds.bbci.co.uk/news/business/rss.xml', lang: 'en' },
+  { id: 'cryptoslate', source: 'CryptoSlate', url: 'https://cryptoslate.com/feed/', lang: 'en' },
+  { id: 'bitcoinmagazine', source: 'Bitcoin Magazine', url: 'https://bitcoinmagazine.com/.rss/full/', lang: 'en' },
+  { id: 'newsbtc', source: 'NewsBTC', url: 'https://www.newsbtc.com/feed/', lang: 'en' },
   // Spanish
+  { id: 'investing-es', source: 'Investing.com España', url: 'https://es.investing.com/rss/news.rss', lang: 'es' },
+  { id: 'investing-es-mkts', source: 'Investing.com España (mercados)', url: 'https://es.investing.com/rss/news_1.rss', lang: 'es' },
+  { id: 'expansion', source: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/mercados.xml', lang: 'es' },
+  { id: 'europapress', source: 'Europa Press', url: 'https://www.europapress.es/rss/rss.aspx?ch=00136', lang: 'es' },
+  { id: 'elfinanciero', source: 'El Financiero', url: 'https://www.elfinanciero.com.mx/arc/outboundfeeds/rss/?outputType=xml', lang: 'es' },
+  { id: 'ambito', source: 'Ámbito', url: 'https://www.ambito.com/rss/pages/economia.xml', lang: 'es' },
+  { id: 'infobae', source: 'Infobae Economía', url: 'https://www.infobae.com/arc/outboundfeeds/rss/category/economia/', lang: 'es' },
   { id: 'criptonoticias', source: 'CriptoNoticias', url: 'https://www.criptonoticias.com/feed/', lang: 'es' },
   { id: 'beincrypto-es', source: 'BeInCrypto (ES)', url: 'https://es.beincrypto.com/feed/', lang: 'es' },
 ];
 
+// Image CDNs that refuse hot-linked requests (verified HTTP 403): drop their thumbnails
+// so the page falls back cleanly instead of showing broken images.
+export const NO_HOTLINK_IMAGES = /(^|\.)content-media\.investing\.com$/i;
+
+// Some publishers reject bot-only user agents; this identifies us while staying browser-compatible.
+const FEED_UA = 'Mozilla/5.0 (compatible; NoticieroVOID/1.0; +https://github.com/sickobusiness33-cloud/NoticieroVOID)';
+
 export async function fetchFeed(feed) {
-  return upstream(`rss:${feed.id}`, feed.url, { as: 'text', timeoutMs: 10000, retries: 1, init: { headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' } } });
+  return upstream(`rss:${feed.id}`, feed.url, { as: 'text', timeoutMs: 10000, retries: 1, init: { headers: { 'user-agent': FEED_UA, accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' } } });
 }
 
 // Central bank meeting dates, copied from the official calendars on 2026-10-22:

@@ -11,15 +11,17 @@ function cg(env, path) {
   return upstream('coingecko', base + path, { init: { headers }, timeoutMs: 12000 });
 }
 
-export async function markets(env, ids) {
+export async function markets(env, ids, { sparkline = false, perPage = 50 } = {}) {
   const q = ids ? `&ids=${encodeURIComponent(ids)}` : '';
-  const rows = await cg(env, `/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&price_change_percentage=1h,24h,7d,30d&sparkline=false${q}`);
+  const rows = await cg(env, `/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${perPage}&page=1&price_change_percentage=1h,24h,7d,30d&sparkline=${sparkline}${q}`);
   return rows.map((c) => ({
     id: c.id, symbol: c.symbol?.toUpperCase(), name: c.name, image: c.image,
     price: c.current_price, marketCap: c.market_cap, volume24h: c.total_volume,
     change1h: c.price_change_percentage_1h_in_currency, change24h: c.price_change_percentage_24h_in_currency ?? c.price_change_percentage_24h,
     change7d: c.price_change_percentage_7d_in_currency, change30d: c.price_change_percentage_30d_in_currency,
     lastUpdated: c.last_updated,
+    // 7 days of ~hourly prices, only when requested (used for the typical-move estimate).
+    sparkline: sparkline ? c.sparkline_in_7d?.price || null : undefined,
   }));
 }
 

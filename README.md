@@ -12,7 +12,8 @@ A bilingual (English first, full Spanish) financial-intelligence newsroom and te
 
 | Module | Route | What it does | Data |
 |---|---|---|---|
-| Newsroom | `#/` | Lead story, top stories (max 2 per publisher), latest feed, market sidebar, macro snapshot, ad slots | RSS feeds, CoinGecko, FRED |
+| Newspaper front page | `#/` | Masthead, breaking bar, lead story with photo, latest column, sections (Economy, Markets, Crypto, Commodities, Currencies, Geopolitics), "More news" grid, ad slots | 30 RSS feeds (EN/ES) |
+| Article page | `#/article/:id` | Headline, credited publisher photo, short excerpt, link to the full story, conditional market-impact scenarios, 36-asset table (crypto, indices, rates, FX, commodities, volatility, credit) with real prices and typical 1-day moves, AI analysis, related stories, 6 ad slots | RSS, CoinGecko, FRED |
 | Command Center | `#/terminal` | Crypto watchlist (saved per browser), rates/FX/equities/VIX table, interactive price chart, OKX funding/OI, rule-based macro regime | CoinGecko, FRED, OKX |
 | Macro Intelligence | `#/macro`, `#/macro/:id` | 36 official series grouped by theme: latest, previous, change, 5-year percentile/range, history chart, implications, source link | FRED (Fed, BLS, BEA, Treasury, ECB, BoJ, ICE BofA, Chicago Fed via FRED) |
 | Intel Feed | `#/news` | Aggregated EN/ES headlines: categories, asset/country tags, de-duplication, breaking flags, relevance ranking, search, saved articles, per-article AI analysis, D1 archive search | 12 publisher/official feeds |
@@ -36,7 +37,8 @@ Every data widget shows its **status badge** (`LIVE`, `DELAYED`, `HISTORICAL`, `
 - **Liquidity composite** is labelled *Analytical estimate*. Inputs, weights, rolling (past-only) z-score normalization, missing-data rule and leave-one-out sensitivity are all displayed. Series with different units are never summed. Net liquidity is the only arithmetic combination, and its components are all USD balance-sheet items of the Fed.
 - **Backtests** compute each signal at close *t* and apply it to the return of bar *t+1*. Macro filters are shifted by a publication lag. Walk-forward optimizes only on past windows. Annualized return is withheld for samples shorter than a year. Results are labelled `BACKTEST`.
 - **AI output** is generated only from a numbered evidence pack. The model must cite `[E#]` ids, and responses citing non-existent evidence are rejected. Results are labelled *AI-generated interpretation*.
-- **Copyright:** the feed stores only headline, a ≤240-character excerpt, publisher, timestamp and link. No publisher images are hot-linked, and every item links to the original article.
+- **Copyright:** the feed stores only headline, a ≤240-character excerpt, publisher, timestamp, link and the thumbnail the publisher distributes in its own feed (always credited). Full article text is never reproduced; every article page links to the publisher's full story.
+- **Market impact on articles** is shown as *conditional scenarios* ("if hawkish… / if dovish…") built from standard transmission channels in `public/js/shared/impact.js`. They carry no probabilities, ambiguous assets are left blank, and each asset shows its real price and a measured typical 1-day move.
 
 ## Architecture
 

@@ -40,6 +40,20 @@ export function truncate(s, n = EXCERPT_MAX) {
   return cut.slice(0, Math.max(cut.lastIndexOf(' '), n - 20)).trim() + '…';
 }
 
+// Publisher-supplied thumbnail: media:content / media:thumbnail / image enclosure,
+// else the first <img> in the item's HTML. Only absolute https URLs are accepted.
+export function feedImage(block) {
+  const candidates = [
+    attr(block, 'media:content', 'url'), attr(block, 'media:thumbnail', 'url'),
+    /<enclosure\b[^>]*type=["']image/i.test(block) ? attr(block, 'enclosure', 'url') : '',
+  ];
+  const html = decodeEntities((block.match(/<(?:content:encoded|description)[^>]*>([\s\S]*?)<\/(?:content:encoded|description)>/i) || [])[1] || '');
+  const img = html.match(/<img\b[^>]*\ssrc=["']([^"']+)["']/i);
+  if (img) candidates.push(decodeEntities(img[1]));
+  const ok = candidates.find((u) => /^https:\/\/[^\s"'<>]+$/i.test(u || '') && !/\.(mp4|mp3|webm)(\?|$)/i.test(u) && !/(pixel|tracking|feeds\.feedburner|1x1|gravatar)/i.test(u));
+  return ok || null;
+}
+
 // Minimal RSS 2.0 / Atom parser that works in Workers (no DOMParser available there).
 export function parseFeed(xml) {
   const items = [];
@@ -53,8 +67,11 @@ export function parseFeed(xml) {
     const desc = stripHtml(tag(b, 'description') || tag(b, 'summary') || '')
       // WordPress feeds append "The post X appeared first on Y." / "El post X apareció primero en Y."
       .replace(/\s*(The post|El post|La entrada)\s.*?(appeared first on|apareció primero en)\s.*$/i, '')
+      // Feed boilerplate such as "Read the full story on X" / "Continue reading" / "Leer más".
+      .replace(/\s*(Read the full story on|Read more|Continue reading|Leer m[aá]s|Seguir leyendo|Sigue leyendo)\b.*$/i, '')
       .trim();
     const cats = [...b.matchAll(/<category(?:\s[^>]*)?>([\s\S]*?)<\/category>/gi)].map((m) => stripHtml(m[1])).filter(Boolean);
+    const image = feedImage(b);
     const ts = Date.parse(stripHtml(date));
     if (!title || !/^https?:\/\//.test(link)) continue;
     items.push({
@@ -63,6 +80,8 @@ export function parseFeed(xml) {
       publishedAt: Number.isFinite(ts) ? new Date(ts).toISOString() : null,
       excerpt: truncate(desc),
       feedCategories: cats.slice(0, 8),
+      // Thumbnail the publisher distributes in its own feed (shown with credit + link).
+      image,
     });
   }
   return items;
@@ -119,6 +138,7 @@ export const CATEGORY_RULES = [
   ['growth', /\b(gdp|recession|pmi|ism|growth|pib|recesi[oó]n|crecimiento)\b/i],
   ['rates-bonds', /\b(treasur(y|ies)|yields?|bonds?|bund|jgb|bonos?|rendimientos?)\b/i],
   ['fx-dollar', /\b(dollar|dxy|yen|euro|currency|forex|d[oó]lar|divisas?)\b/i],
+  ['commodities', /\b(oil|crude|brent|wti|opec\+?|natural gas|lng|gold|silver|copper|commodit(y|ies)|petr[oó]leo|oro|plata|cobre|materias primas|gas natural)\b/i],
   ['geopolitics', /\b(tariffs?|sanctions?|war|election|china|russia|ukraine|middle east|aranceles?|guerra|elecciones?)\b/i],
   ['regulation', /\b(sec|cftc|regulat\w*|lawsuit|etf approval|mica|gensler|atkins|regulaci[oó]n)\b/i],
   ['etf-flows', /\b(etf|inflows?|outflows?|blackrock|ibit|fidelity)\b/i],
