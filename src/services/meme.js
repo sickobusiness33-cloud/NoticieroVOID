@@ -20,8 +20,8 @@ export async function memeState(env, rulesOverride) {
     get('coingecko-history', 'cg:hist:solana:365', 6 * 3600, () => history(env, 'solana', 365)),
     get('defillama-dex', 'llama:dex:solana', 1800, () => dexVolume('solana')),
     get('defillama-stablecoins', 'llama:stables:Solana', 3600, () => stablecoinChain('Solana')),
-    get('geckoterminal-trending', 'gt:trending', 180, () => solanaPools('trending')),
-    get('geckoterminal-new', 'gt:new', 180, () => solanaPools('new')),
+    get('geckoterminal-trending', 'gt:trending', 180, () => solanaPools('trending', env)),
+    get('geckoterminal-new', 'gt:new', 180, () => solanaPools('new', env)),
     get('solana-rpc', 'sol:fees', 60, () => solanaFees(env)),
   ]);
 

@@ -2,12 +2,12 @@
 // checks for the most active tokens are cached 15 min. GeckoTerminal's free API allows
 // ~30 calls/min, so the number of upstream requests per refresh is kept small.
 
-import { upstream, cached, log } from '../lib/core.js';
+import { cached, log } from '../lib/core.js';
+import { onchain } from '../adapters/crypto.js';
 import { normalizePool, normalizeInfo, analyze, mergePools } from '../../public/js/shared/memescan.js';
 import { latest as latestNews } from './news.js';
 
-const GT = 'https://api.geckoterminal.com/api/v2/networks/solana';
-const HDR = { init: { headers: { accept: 'application/json;version=20230302' } }, timeoutMs: 12000, retries: 1 };
+const GT = '/networks/solana';
 
 const LISTS = {
   new: `${GT}/new_pools?page=1&include=base_token`,
@@ -19,7 +19,7 @@ const LISTS = {
 
 async function fetchList(env, key) {
   const r = await cached(env, `gt:list:${key}`, 60, async () => {
-    const body = await upstream('geckoterminal', LISTS[key], HDR);
+    const body = await onchain(env, LISTS[key]);
     const tokens = Object.fromEntries((body.included || []).map((t) => [t.id, t]));
     return (body.data || []).map((p) => ({ raw: p, tokens: { [p.relationships?.base_token?.data?.id]: tokens[p.relationships?.base_token?.data?.id] } }));
   });
@@ -28,7 +28,7 @@ async function fetchList(env, key) {
 
 async function tokenInfo(env, address) {
   const r = await cached(env, `gt:info:${address}`, 900, async () => {
-    const body = await upstream('geckoterminal', `${GT}/tokens/${address}/info`, HDR);
+    const body = await onchain(env, `${GT}/tokens/${address}/info`);
     return normalizeInfo(body.data?.attributes);
   });
   return r.value;

@@ -124,9 +124,24 @@ export async function dexVolume(chain) {
   return { series, total24h: body.total24h, total7d: body.total7d, change7d: body.change_7d, change1d: body.change_1d, protocols };
 }
 
-export async function solanaPools(kind = 'trending') {
+// On-chain DEX data (GeckoTerminal). With COINGECKO_API_KEY the same data is read from
+// CoinGecko's keyed /onchain API (GeckoTerminal's public API throttles Cloudflare egress);
+// otherwise, or if the keyed call fails, the public GeckoTerminal API is used.
+export async function onchain(env, path) {
+  const gtHeaders = { accept: 'application/json;version=20230302' };
+  if (env.COINGECKO_API_KEY) {
+    const pro = env.COINGECKO_PLAN === 'pro';
+    const base = pro ? 'https://pro-api.coingecko.com/api/v3/onchain' : 'https://api.coingecko.com/api/v3/onchain';
+    try {
+      return await upstream('coingecko-onchain', base + path, { timeoutMs: 12000, retries: 1, init: { headers: { ...gtHeaders, [pro ? 'x-cg-pro-api-key' : 'x-cg-demo-api-key']: env.COINGECKO_API_KEY } } });
+    } catch { /* fall through to the public endpoint */ }
+  }
+  return upstream('geckoterminal', `https://api.geckoterminal.com/api/v2${path}`, { timeoutMs: 12000, retries: 1, init: { headers: gtHeaders } });
+}
+
+export async function solanaPools(kind = 'trending', env = {}) {
   const path = kind === 'new' ? 'new_pools' : 'trending_pools';
-  const body = await upstream('geckoterminal', `https://api.geckoterminal.com/api/v2/networks/solana/${path}?page=1`, { timeoutMs: 12000, init: { headers: { accept: 'application/json;version=20230302' } } });
+  const body = await onchain(env, `/networks/solana/${path}?page=1`);
   return (body.data || []).map((p) => {
     const a = p.attributes || {};
     const tx = a.transactions?.h24 || {};
