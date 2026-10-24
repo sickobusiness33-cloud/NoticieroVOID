@@ -188,11 +188,19 @@ export async function walletActivity(env, chain, address, { limit = 25 } = {}) {
   if (chain === 'solana') {
     const sigs = await solRpc(env, 'getSignaturesForAddress', [address, { limit: Math.min(limit, 15) }]);
     const txs = [];
+    let skipped = 0;
     for (const s of sigs) {
-      const r = await cached(env, `sol:tx:${s.signature}`, 86400, () => solRpc(env, 'getTransaction', [s.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]));
-      if (r.value) txs.push(...classifySolanaTx(r.value, address));
+      // Newer transaction formats (v1) need a higher maxSupportedTransactionVersion; fall back
+      // to 0 for RPCs that do not accept 1. A single unreadable transaction is skipped, not fatal.
+      try {
+        const r = await cached(env, `sol:tx:${s.signature}`, 86400, async () => {
+          try { return await solRpc(env, 'getTransaction', [s.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 1 }]); }
+          catch (e) { if (/version/i.test(e.message)) return solRpc(env, 'getTransaction', [s.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]); throw e; }
+        });
+        if (r.value) txs.push(...classifySolanaTx(r.value, address));
+      } catch { skipped++; }
     }
-    return { events: txs, cursor: sigs[0]?.signature || null, source: 'Solana RPC', latency: 'confirmed commitment, polled' };
+    return { events: txs, cursor: sigs[0]?.signature || null, skipped, source: 'Solana RPC', latency: 'confirmed commitment, polled' };
   }
   const c = EVM_CHAINS[chain];
   if (!c) throw bad('Unsupported chain');
