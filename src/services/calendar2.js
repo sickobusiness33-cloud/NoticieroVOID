@@ -57,7 +57,47 @@ async function sourceBEA(env) {
   });
 }
 
+// Primary: TreasuryDirect (official, includes results). Fallback: FiscalData.
 async function sourceTreasury(env, from, to) {
+  try { return await sourceTreasuryDirect(env, from, to); }
+  catch (e) { log('warn', 'treasurydirect_failed', { error: e.message }); return sourceFiscalData(env, from, to); }
+}
+
+async function sourceTreasuryDirect(env, from, to) {
+  const today = new Date().toISOString().slice(0, 10);
+  const td = 'https://www.treasurydirect.gov/TA_WS/securities';
+  const days = from < today ? Math.min(400, Math.ceil((Date.now() - Date.parse(from)) / 86400000) + 1) : 0;
+  const [up, past] = await Promise.all([
+    cached(env, 'cal:td:upcoming', 3 * 3600, () => upstream('treasurydirect', `${td}/upcoming?format=json`, { timeoutMs: 20000, retries: 1 })),
+    days ? cached(env, `cal:td:auctioned:${days}`, 6 * 3600, () => upstream('treasurydirect', `${td}/auctioned?format=json&days=${days}`, { timeoutMs: 25000, retries: 1 })) : Promise.resolve({ value: [] }),
+  ]);
+  const nn = (v) => (v === null || v === '' || v === undefined ? null : Number(v));
+  const seen = new Set();
+  const events = [...(past.value || []), ...(up.value || [])].filter((r) => {
+    const d = (r.competitiveAuctionCloseDate || r.auctionDate || '').slice(0, 10);
+    const k = `${r.cusip}:${d}`;
+    if (!d || seen.has(k)) return false;
+    seen.add(k); return true;
+  }).map((r) => {
+    const date = (r.competitiveAuctionCloseDate || r.auctionDate).slice(0, 10);
+    const t = (r.competitiveAuctionCloseTime || '01:00 PM').match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    const time = t ? `${String((Number(t[1]) % 12) + (/PM/i.test(t[3]) ? 12 : 0)).padStart(2, '0')}:${t[2]}` : '13:00';
+    const coupon = r.securityType !== 'Bill';
+    return norm({
+      id: `ust:${r.cusip}:${date}`, type: 'auction', date, time, tz: 'America/New_York', region: 'US',
+      title: `Treasury auction: ${r.securityTerm} ${r.securityType}${r.reopening === 'Yes' ? ' (reopening)' : ''}`,
+      titleEs: `Subasta del Tesoro: ${r.securityTerm} ${r.securityType}${r.reopening === 'Yes' ? ' (reapertura)' : ''}`,
+      categories: ['cb'], importance: coupon && /10-Year|30-Year|20-Year/.test(r.securityTerm) ? 'high' : coupon ? 'medium' : 'low', durationMin: 5,
+      source: 'U.S. Treasury (TreasuryDirect)', sourceUrl: 'https://www.treasurydirect.gov/auctions/upcoming/',
+      updatedAt: r.updatedTimestamp || null,
+      data: { offeringUsd: nn(r.offeringAmount), highYield: nn(r.highYield) ?? nn(r.highInvestmentRate), bidToCover: nn(r.bidToCoverRatio) },
+      assets: ['UST10Y', 'UST2Y'],
+    });
+  });
+  return { events };
+}
+
+async function sourceFiscalData(env, from, to) {
   const today = new Date().toISOString().slice(0, 10);
   const base = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od';
   const fields = 'auction_date,security_type,security_term,high_yield,high_investment_rate,bid_to_cover_ratio,offering_amt,cusip,reopening,closing_time_comp';
