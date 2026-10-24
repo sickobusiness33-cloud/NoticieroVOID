@@ -15,6 +15,7 @@ import { scanner } from './services/memescan.js';
 import * as lab from './services/lab.js';
 import * as alerts from './services/alerts.js';
 import * as cal2 from './services/calendar2.js';
+import { officialText } from './services/official.js';
 import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -167,6 +168,15 @@ const routes = {
     if (!item) return apiError(404, 'not_found', 'Article not found (it may have left the current feed window).');
     const related = r.value.items.filter((i) => i.id !== id && i.categories.some((c) => item.categories?.includes(c))).slice(0, 8);
     return json({ item, impact: impactFor(item), related, meta: meta({ source: item.source, sourceUrl: item.url, status: 'delayed', cachedAt: r.cachedAt, stale: r.stale }) });
+  },
+
+  'GET /api/news/official': async (req, env) => {
+    const id = q(new URL(req.url), 'id');
+    if (!id || !/^[a-f0-9]{20}$/.test(id)) return apiError(400, 'bad_id', 'Invalid article id');
+    const r = await news.latest(env);
+    const item = r.value.items.find((i) => i.id === id) || (env.DB ? await news.getArchived(env, id) : null);
+    if (!item) return apiError(404, 'not_found', 'Article not found');
+    return json(await officialText(env, item));
   },
 
   'GET /api/assets/universe': async (req, env) => json(await universe(env)),

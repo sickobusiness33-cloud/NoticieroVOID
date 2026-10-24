@@ -23,7 +23,9 @@ and pushes on its own. Pushing to `main` deploys to production automatically
 - News: headline + ≤240-char excerpt + link to the publisher; never reproduce article bodies.
   Publisher thumbnails from their own RSS feeds may be shown, always credited ("Image: Source"),
   except hosts in `NO_HOTLINK_IMAGES`. Article pages add only original VOID content (market data,
-  conditional scenarios, AI analysis) and must keep the "Read the full story at …" link.
+  conditional scenarios, AI analysis) and must keep the "Read the full story at …" link (shown at the bottom).
+  Full text is shown ONLY for official releases in `OFFICIAL_HOSTS` (src/services/official.js: public domain
+  or reuse-with-attribution terms); never for commercial publishers.
 - Every user-facing string exists in English and Spanish (`public/js/i18n.js` or `tr(en, es)`).
 - Shared analytics live in `public/js/shared/` and need unit tests in `test/`.
 - Ads only through `public/js/ads.js` (Coinzilla), always labelled Advertisement/Publicidad.

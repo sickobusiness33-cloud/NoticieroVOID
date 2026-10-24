@@ -5,7 +5,7 @@
 import { t, tr, getLang } from './i18n.js';
 import { h, api, async, metaLine, statusBadge, fmtNum, fmtPct, fmtTime, ago, signClass, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
-import { UNIVERSE, CLASS_NAMES } from './shared/impact.js';
+import { UNIVERSE } from './shared/impact.js';
 
 const SECTIONS = [
   { key: 'macro', en: 'Economy & Central Banks', es: 'Economía y bancos centrales', cats: ['central-banks', 'inflation', 'labor', 'growth'] },
@@ -137,8 +137,6 @@ export async function article({ params }) {
     const meta = Object.fromEntries(UNIVERSE.map((a) => [a.id, a]));
     const name = (id2) => tr(meta[id2].en, meta[id2].es);
     const moveTxt = (x) => (x?.move ? `±${fmtNum(x.move.sigma, 2)}${x.move.unit === 'bp' ? ' pb' : '%'}` : '—');
-    const valueTxt = (x) => (x && Number.isFinite(x.value) ? fmtNum(x.value, Math.abs(x.value) >= 1000 ? 0 : Math.abs(x.value) < 10 ? 4 : 2) : '—');
-    const chgTxt = (x) => (x && Number.isFinite(x.change) ? `${x.change > 0 ? '+' : ''}${fmtNum(x.change, 2)} ${x.changeUnit.startsWith('bp') ? 'pb' : '%'}` : '—');
     const imp = d.impact;
     const saved = store('saved', []);
     const isSaved = saved.some((x) => x.url === it.url);
@@ -150,25 +148,18 @@ export async function article({ params }) {
       saveBtn.textContent = i >= 0 ? t('save') : t('saved_ok');
     } }, isSaved ? t('saved_ok') : t('save'));
     const aiBox = h('div');
+    // Official releases (Fed, BEA: public domain; ECB, BoE: reuse allowed with attribution) are shown in full.
+    const officialBox = h('div', { class: 'art-official' });
+    if (it.official) {
+      officialBox.append(h('div', { class: 'loading' }, h('span', { class: 'spin' }), tr('Loading official text…', 'Cargando texto oficial…')));
+      api(`/api/news/official?id=${it.id}`).then((o) => officialBox.replaceChildren(
+        h('div', { class: 'art-body' }, o.paragraphs.map((p) => h('p', null, p))),
+        h('p', { class: 'small muted' }, `${tr('Full text of the official release', 'Texto íntegro del comunicado oficial')} · ${o.license} · `, h('a', { href: it.url, target: '_blank', rel: 'noopener' }, it.source))))
+        .catch(() => officialBox.replaceChildren());
+    }
     const aiBtn = h('button', { class: 'btn', onclick: () => import('./views.js').then((m) => m.analyzeInto(it, aiBox, aiBtn)) }, t('analyze'));
 
-    const assetRow = (id2, branches) => {
-      const x = A[id2] || { status: 'unavailable' };
-      return h('tr', null,
-        h('td', null, h('b', null, name(id2)), h('div', { class: 'small muted' }, tr(...CLASS_NAMES[meta[id2].cls]))),
-        h('td', { class: 'num' }, valueTxt(x), h('div', { class: 'small muted' }, x.date ? String(x.date).slice(0, 10) : '')),
-        h('td', { class: `num ${signClass(x.change)}` }, chgTxt(x)),
-        h('td', { class: 'num', title: x.move?.basis || '' }, moveTxt(x)),
-        ...branches.map((s) => { const dir = s.moves[id2]; return h('td', { class: `num ${dir > 0 ? 'up' : dir < 0 ? 'down' : 'muted'}` }, dir ? ARROW[dir] : '·'); }),
-        h('td', null, statusBadge(x.status), x.sourceUrl ? h('a', { href: x.sourceUrl, target: '_blank', rel: 'noopener', class: 'small', style: 'margin-left:6px' }, x.source) : null));
-    };
     const scen = imp.scenarios;
-    const branchHead = scen.map((s, i) => h('th', { title: tr(s.label.en, s.label.es) }, `${tr('Scen.', 'Esc.')} ${String.fromCharCode(65 + i)}`));
-    const head = h('tr', null, h('th', null, tr('Asset', 'Activo')), h('th', null, tr('Last', 'Último')), h('th', null, tr('Change', 'Cambio')), h('th', { title: tr('Typical one-day move (1 standard deviation)', 'Movimiento típico de un día (1 desviación estándar)') }, tr('Typical 1d move', 'Mov. típico 1d')), ...branchHead, h('th', null, t('source')));
-    const byClass = Object.keys(CLASS_NAMES).map((cls) => {
-      const ids = UNIVERSE.filter((a) => a.cls === cls).map((a) => a.id);
-      return [h('tr', { class: 'grp' }, h('td', { colspan: 5 + scen.length }, tr(...CLASS_NAMES[cls]))), ...ids.map((x) => assetRow(x, scen))];
-    }).flat();
 
     return [
       h('nav', { class: 'crumbs small' }, h('a', { href: '#/' }, tr('Front page', 'Portada')), ' › ', kicker(it)),
@@ -180,11 +171,10 @@ export async function article({ params }) {
           h('div', { class: 'np-by' }, h('b', null, it.source), h('span', null, fmtTime(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase()), it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null),
           adSlot('leaderboard'),
           photo(it, 'art-pic'),
-          h('div', { class: 'art-cta' },
-            h('p', null, tr(`This is a short excerpt. The full story is published by ${it.source}.`, `Esto es un extracto breve. La noticia completa está publicada por ${it.source}.`)),
-            h('a', { class: 'btn pri', href: it.url, target: '_blank', rel: 'noopener' }, `${tr('Read the full story at', 'Leer la noticia completa en')} ${it.source} ↗`),
-            it.alsoReportedBy?.length ? h('p', { class: 'small' }, `${t('also')}: `, it.alsoReportedBy.map((r) => h('a', { href: r.url, target: '_blank', rel: 'noopener', style: 'margin-right:8px' }, r.source))) : null,
-            h('div', { class: 'controls' }, saveBtn, aiBtn, h('button', { class: 'btn', onclick: (e) => { navigator.clipboard?.writeText(location.href); e.currentTarget.textContent = tr('Link copied', 'Enlace copiado'); } }, tr('Copy link', 'Copiar enlace')))),
+          h('div', { class: 'controls art-actions' }, saveBtn, aiBtn, h('button', { class: 'btn', onclick: (e) => { navigator.clipboard?.writeText(location.href); e.currentTarget.textContent = tr('Link copied', 'Enlace copiado'); } }, tr('Copy link', 'Copiar enlace'))),
+          it.official ? officialBox : null,
+          it.alsoReportedBy?.length ? h('div', { class: 'art-also' }, h('b', { class: 'small' }, `${tr('Also covered by', 'También lo cubren')}: `),
+            it.alsoReportedBy.map((r) => h('a', { href: r.url, target: '_blank', rel: 'noopener', class: 'tag' }, `${r.source} ↗`))) : null,
           aiBox,
 
           h('h2', { class: 'np-sec-title' }, h('span', null, tr('Possible market impact', 'Posible impacto en los mercados'))),
@@ -197,12 +187,9 @@ export async function article({ params }) {
             h('ul', null, Object.entries(s.moves).sort((a, b) => imp.assets.indexOf(a[0]) - imp.assets.indexOf(b[0])).slice(0, 10).map(([x, dir]) => h('li', null,
               h('span', { class: dir > 0 ? 'up' : 'down' }, `${ARROW[dir]} `), name(x), h('span', { class: 'small muted' }, ` · ${tr('typical 1d', 'típico 1d')} ${moveTxt(A[x])}`))))))),
           adSlot('leaderboard'),
-          h('h2', { class: 'np-sec-title' }, h('span', null, tr('All assets we track', 'Todos los activos que seguimos'))),
-          h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl art-assets' }, h('thead', null, head), h('tbody', null, byClass))),
-          h('p', { class: 'small muted' }, `▲/▼ = ${tr('typical direction in that scenario; · = no consistent typical reaction (left blank rather than guessed).', 'dirección típica en ese escenario; · = sin reacción típica consistente (se deja en blanco en lugar de adivinar).')} `,
-            tr('Gold uses the PAXG token as a proxy. FX and commodity data from FRED are end-of-day and published with a lag.', 'El oro usa el token PAXG como proxy. Las divisas y materias primas de FRED son de cierre y se publican con retraso.')),
-          uni.error ? h('div', { class: 'error-box' }, uni.error) : metaLine({ status: uni.stale ? 'stale' : 'delayed', source: 'CoinGecko · FRED', lastUpdated: uni.cachedAt }),
-          adSlot('leaderboard')),
+          h('div', { class: 'art-source' },
+            h('p', null, tr(`This is a short excerpt. The full story is published by ${it.source}.`, `Esto es un extracto breve. La noticia completa está publicada por ${it.source}.`)),
+            h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:0' }, `${tr('Read the full story at', 'Leer la noticia completa en')} ${it.source} ↗`))),
         h('aside', { class: 'art-side' }, adSlot('rectangle'),
           h('h2', { class: 'np-sec-title' }, h('span', null, tr('Related', 'Relacionadas'))),
           d.related.map((r) => card(r, 's')),

@@ -413,3 +413,8 @@ label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; colo
   .vc-week { grid-template-columns: 1fr; } .vc-wcol { min-height: 0; }
   .vc-title h1 { font-size: 17px; min-width: 0; }
 }
+.art-actions { margin: 12px 0; }
+.art-also { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
+.art-official .art-body p { font: 17px/1.65 var(--body-serif, Georgia, serif); margin: 0 0 14px; color: var(--tx); }
+.art-source { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--tx2); }
+.art-source p { margin: 0; }
