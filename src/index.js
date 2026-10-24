@@ -16,6 +16,7 @@ import * as lab from './services/lab.js';
 import * as alerts from './services/alerts.js';
 import * as cal2 from './services/calendar2.js';
 import { officialText } from './services/official.js';
+import { story } from './services/story.js';
 import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -177,6 +178,22 @@ const routes = {
     const item = r.value.items.find((i) => i.id === id) || (env.DB ? await news.getArchived(env, id) : null);
     if (!item) return apiError(404, 'not_found', 'Article not found');
     return json(await officialText(env, item));
+  },
+
+  'GET /api/news/story': async (req, env) => {
+    const url = new URL(req.url);
+    const id = q(url, 'id');
+    const lang = q(url, 'lang') === 'es' ? 'es' : 'en';
+    if (!id || !/^[a-f0-9]{20}$/.test(id)) return apiError(400, 'bad_id', 'Invalid article id');
+    const r = await news.latest(env);
+    const item = r.value.items.find((i) => i.id === id) || (env.DB ? await news.getArchived(env, id) : null);
+    if (!item) return apiError(404, 'not_found', 'Article not found');
+    try {
+      return json(await story(env, item, r.value.items, lang));
+    } catch (e) {
+      if (e.status) return apiError(e.status, e.code || 'story_error', e.message);
+      throw e;
+    }
   },
 
   'GET /api/assets/universe': async (req, env) => json(await universe(env)),

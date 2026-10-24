@@ -28,6 +28,10 @@ COINZILLA_ZONE_MOBILE = ""
 COINZILLA_STICKY_ZONE = ""
 COINZILLA_VERIFICATION = ""
 
+# Workers AI (free daily allocation): writes the VOID Report stories; capped in src/services/story.js.
+[ai]
+binding = "AI"
+
 # ---- Optional bindings (uncomment after creating them; see README) ----------------
 # KV cache: npx wrangler kv namespace create CACHE
 # [[kv_namespaces]]

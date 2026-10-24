@@ -24,6 +24,9 @@ and pushes on its own. Pushing to `main` deploys to production automatically
   Publisher thumbnails from their own RSS feeds may be shown, always credited ("Image: Source"),
   except hosts in `NO_HOTLINK_IMAGES`. Article pages add only original VOID content (market data,
   conditional scenarios, AI analysis) and must keep the "Read the full story at …" link (shown at the bottom).
+  The "VOID Report" (src/services/story.js, Workers AI, capped to the free tier) is an original story written
+  only from feed facts (headline/excerpt of the item and same-story items); its guards drop copied wording,
+  unsourced quotes and numbers absent from the sources. Never feed it scraped article bodies.
   Full text is shown ONLY for official releases in `OFFICIAL_HOSTS` (src/services/official.js: public domain
   or reuse-with-attribution terms); never for commercial publishers.
 - Every user-facing string exists in English and Spanish (`public/js/i18n.js` or `tr(en, es)`).

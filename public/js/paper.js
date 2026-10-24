@@ -1,7 +1,8 @@
 // Newspaper front page and article page.
 // Copyright: we show the publisher's headline, its feed thumbnail (credited), a short
 // excerpt (≤240 chars) and a prominent link to the full story at the publisher. Everything
-// else on the article page (market data, scenarios, AI analysis) is original to VOID.
+// else on the article page (VOID Report written by AI from those facts, market data, scenarios,
+// AI analysis) is original to VOID.
 import { t, tr, getLang } from './i18n.js';
 import { h, api, async, metaLine, statusBadge, fmtNum, fmtPct, fmtTime, ago, signClass, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
@@ -157,6 +158,28 @@ export async function article({ params }) {
         h('p', { class: 'small muted' }, `${tr('Full text of the official release', 'Texto íntegro del comunicado oficial')} · ${o.license} · `, h('a', { href: it.url, target: '_blank', rel: 'noopener' }, it.source))))
         .catch(() => officialBox.replaceChildren());
     }
+    // VOID Report: original story written by AI from the published facts (never the publisher's text).
+    const storyBox = h('div', { class: 'art-story' });
+    if (!it.official) {
+      storyBox.append(h('div', { class: 'loading' }, h('span', { class: 'spin' }), tr('Our newsroom AI is writing the story…', 'Nuestra redacción IA está escribiendo la noticia…')));
+      const lang = getLang() === 'es' ? 'es' : 'en';
+      api(`/api/news/story?id=${it.id}&lang=${lang}`).then((s) => {
+        if (s.status !== 'ok' || !s.paragraphs.length) {
+          storyBox.replaceChildren(h('p', { class: 'small muted' }, tr('The AI story for this item did not pass our accuracy checks, so it is not shown.', 'La noticia redactada por IA no superó nuestros controles de exactitud, así que no se muestra.')));
+          return;
+        }
+        const n = s.sources.length;
+        storyBox.replaceChildren(
+          h('div', { class: 'art-story-head' }, h('span', { class: 'label-rule' }, tr('VOID REPORT', 'INFORME VOID')), h('span', { class: 'tag vio' }, tr('Written with AI', 'Redactado con IA'))),
+          s.headline ? h('h2', { class: 'art-story-title' }, s.headline) : null,
+          h('div', { class: 'art-body' }, s.paragraphs.map((p) => h('p', null, p))),
+          h('p', { class: 'small muted' }, tr(
+            `Written by Noticiero VOID with AI using only the facts reported by ${s.sources[0].source}${n > 1 ? ` and ${n - 1} other outlet(s)` : ''}. It may contain errors; check the original source below.`,
+            `Redactado por Noticiero VOID con IA usando solo los hechos publicados por ${s.sources[0].source}${n > 1 ? ` y ${n - 1} medio(s) más` : ''}. Puede contener errores; consulta la fuente original abajo.`)));
+      }).catch((e) => storyBox.replaceChildren(h('p', { class: 'small muted' }, e.status === 429
+        ? tr('Today’s free AI quota is used up; the story will be written after 00:00 UTC.', 'El cupo gratuito de IA de hoy se ha agotado; la noticia se redactará después de las 00:00 UTC.')
+        : tr('The AI story is not available right now.', 'La noticia redactada por IA no está disponible ahora mismo.'))));
+    }
     const aiBtn = h('button', { class: 'btn', onclick: () => import('./views.js').then((m) => m.analyzeInto(it, aiBox, aiBtn)) }, t('analyze'));
 
     const scen = imp.scenarios;
@@ -172,7 +195,7 @@ export async function article({ params }) {
           adSlot('leaderboard'),
           photo(it, 'art-pic'),
           h('div', { class: 'controls art-actions' }, saveBtn, aiBtn, h('button', { class: 'btn', onclick: (e) => { navigator.clipboard?.writeText(location.href); e.currentTarget.textContent = tr('Link copied', 'Enlace copiado'); } }, tr('Copy link', 'Copiar enlace'))),
-          it.official ? officialBox : null,
+          it.official ? officialBox : storyBox,
           it.alsoReportedBy?.length ? h('div', { class: 'art-also' }, h('b', { class: 'small' }, `${tr('Also covered by', 'También lo cubren')}: `),
             it.alsoReportedBy.map((r) => h('a', { href: r.url, target: '_blank', rel: 'noopener', class: 'tag' }, `${r.source} ↗`))) : null,
           aiBox,
