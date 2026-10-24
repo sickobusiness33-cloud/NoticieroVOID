@@ -21,14 +21,17 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{2,60}$/;
 
 // Ad network and data provider domains are allowed explicitly; everything else is 'self'.
+// Ad networks (Coinzilla, Monetag) load creatives from rotating domains, so scripts, frames
+// and connections allow any HTTPS origin; everything else stays restricted.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://coinzillatag.com https://*.coinzilla.com https://*.czilladx.com https://5gvci.com https://*.5gvci.com",
-  "frame-src https://*.czilladx.com https://*.coinzilla.com https://coinzillatag.com",
+  "script-src 'self' 'unsafe-inline' https:",
+  "frame-src https:",
   "img-src 'self' data: https:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "connect-src 'self' https://*.coinzilla.com https://*.czilladx.com https://coinzillatag.com https://5gvci.com https://*.5gvci.com",
+  "connect-src 'self' https:",
+  "worker-src 'self'",
   "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
 ].join('; ');
 
