@@ -135,3 +135,14 @@ test('sections and static pages are complete in both languages', () => {
     assert.ok(PAGES[path].en && PAGES[path].es, path);
   }
 });
+
+import { mixTopics, capPerTopic, primarySection, FRONT_ORDER } from '../public/js/shared/seo.js';
+test('front page mixes topics: a burst of AI stories does not take the top slots', () => {
+  const ai = Array.from({ length: 6 }, (_, i) => ({ id: `ai${i}`, categories: ['ai'], assets: [] }));
+  const items = [...ai, { id: 'm', categories: ['inflation'], assets: [] }, { id: 'c', categories: ['etf-flows'], assets: ['BTC'] }, { id: 's', categories: ['stocks'], assets: [] }];
+  const mixed = mixTopics(items);
+  assert.deepEqual(mixed.slice(0, 4).map((x) => x.id), ['m', 'c', 's', 'ai0']);
+  assert.equal(mixed.length, items.length);
+  assert.equal(capPerTopic(items, 3).filter((x) => primarySection(x) === 'ai').length, 3);
+  assert.ok(FRONT_ORDER.indexOf('ai') > FRONT_ORDER.indexOf('crypto'));
+});

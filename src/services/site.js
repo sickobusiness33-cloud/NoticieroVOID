@@ -3,7 +3,7 @@
 // crawlers and no-JS readers get the same headline, text and links in the initial HTML.
 // Everything is read from D1 (articles archive + VOID Report stories): no feed fetches here.
 
-import { SITE_NAME, PAGES, SECTIONS, ID_RE, articlePath, sectionPath, inSection, esc, clip, headTags, ldScript,
+import { SITE_NAME, PAGES, SECTIONS, ID_RE, frontSections, mixTopics, capPerTopic, articlePath, sectionPath, inSection, esc, clip, headTags, ldScript,
   organizationLd, websiteLd, breadcrumbLd, newsArticleLd, urlsetXml, sitemapIndexXml, newsSitemapXml, rssXml } from '../../public/js/shared/seo.js';
 import { STATIC_PAGES } from '../../public/js/shared/pages.js';
 import { CATALOG } from '../adapters/fred.js';
@@ -63,11 +63,11 @@ const sectionOf = (it) => SECTIONS.find((s) => inSection(s, it));
 const footerLinks = () => `<nav class="ssr-foot" aria-label="Site">${SECTIONS.map((s) => `<a href="${sectionPath(s.key)}">${esc(s.en)}</a>`).join(' · ')} · <a href="/news">All news</a> · <a href="/about">About</a> · <a href="/editorial-policy">Editorial policy</a> · <a href="/privacy">Privacy</a></nav>`;
 
 function frontBody(items) {
-  const blocks = SECTIONS.map((s) => {
+  const blocks = frontSections().map((s) => {
     const its = items.filter((it) => inSection(s, it)).slice(0, 6);
     return its.length ? `<section><h2><a href="${sectionPath(s.key)}">${esc(s.en)}</a></h2>${list(its)}</section>` : '';
   }).join('');
-  return `<h1>${esc(SITE_NAME)}: markets, macro and crypto news</h1><p>${esc(PAGES['/'].desc)}</p><section><h2>Latest</h2>${list(items.slice(0, 15))}</section>${blocks}${footerLinks()}`;
+  return `<h1>${esc(SITE_NAME)}: markets, macro and crypto news</h1><p>${esc(PAGES['/'].desc)}</p><section><h2>Latest</h2>${list(capPerTopic(mixTopics(items), 3).slice(0, 15))}</section>${blocks}${footerLinks()}`;
 }
 
 function staticBody(path) {

@@ -7,7 +7,7 @@ import { t, tr, getLang } from './i18n.js';
 import { h, api, async, metaLine, statusBadge, fmtNum, fmtPct, fmtTime, ago, signClass, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
 import { UNIVERSE } from './shared/impact.js';
-import { SECTIONS, inSection, articlePath, sectionPath } from './shared/seo.js';
+import { SECTIONS, inSection, articlePath, sectionPath, frontSections, primarySection, mixTopics, capPerTopic } from './shared/seo.js';
 
 const CAT_LABEL = {
   'central-banks': ['Central banks', 'Bancos centrales'], inflation: ['Inflation', 'Inflación'], labor: ['Jobs', 'Empleo'], growth: ['Growth', 'Crecimiento'],
@@ -62,13 +62,14 @@ export async function front() {
     h('div', { class: 'mh-line' }, h('span', null, now.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })),
       h('span', null, lang === 'es' ? 'Edición en español' : 'English edition'), h('span', null, t('tagline'))),
     h('h1', { class: 'mh-title' }, 'Noticiero VOID'),
-    h('nav', { class: 'mh-sections' }, SECTIONS.map((s) => h('a', { href: `#sec-${s.key}`, onclick: (e) => { e.preventDefault(); root.querySelector(`#sec-${s.key}`)?.scrollIntoView({ behavior: 'smooth' }); } }, tr(s.en, s.es))),
+    h('nav', { class: 'mh-sections' }, frontSections().map((s) => h('a', { href: `#sec-${s.key}`, onclick: (e) => { e.preventDefault(); root.querySelector(`#sec-${s.key}`)?.scrollIntoView({ behavior: 'smooth' }); } }, tr(s.en, s.es))),
       h('a', { href: '/news' }, tr('All news', 'Todas las noticias')))));
   const body = h('div');
   root.append(body);
   async(body, async () => {
     const [byRel, byTime] = await Promise.all([api(`/api/news?lang=${lang}&limit=200`), api(`/api/news?lang=${lang}&limit=200&sort=time`)]);
-    const items = byRel.items;
+    // Topics are interleaved so the front page stays varied whatever topic is busiest today.
+    const items = mixTopics(byRel.items);
     if (!items.length) return h('div', { class: 'notice' }, t('no_data'));
     const used = new Set();
     const take = (list, n, pred = () => true) => {
@@ -84,12 +85,22 @@ export async function front() {
       return out;
     };
     const withImg = (it) => !!it.image;
-    const [lead] = take(items, 1, withImg).length ? [items.find((i) => used.has(i.id))] : take(items, 1);
-    const seconds = take(items, 2, withImg);
-    const latest = byTime.items.slice(0, 14);
+    // Lead: from the core topics (economy, crypto, stocks, finance, markets), with a photo,
+    // preferring a story other outlets also cover; AI/tech stories appear further down.
+    const core = (it) => ['macro', 'crypto', 'stocks', 'finance', 'markets'].includes(primarySection(it));
+    const pick = (pred) => (take(items, 1, pred).length ? items.find((i) => used.has(i.id)) : null);
+    const lead = pick((it) => core(it) && withImg(it) && it.alsoReportedBy?.length > 0) || pick((it) => core(it) && withImg(it)) || pick(withImg) || pick(() => true);
+    // Lead and the two secondary stories always come from three different topics.
+    const topics = new Set([primarySection(lead)]);
+    const seconds = [];
+    for (let k = 0; k < 2; k++) {
+      const [s2] = take(items, 1, (it) => withImg(it) && !topics.has(primarySection(it)));
+      if (s2) { seconds.push(s2); topics.add(primarySection(s2)); }
+    }
+    const latest = capPerTopic(byTime.items, 3).slice(0, 14);
     const breaking = items.filter((i) => i.breaking).slice(0, 6);
 
-    const sections = SECTIONS.map((s) => {
+    const sections = frontSections().map((s) => {
       const pred = (it) => inSection(s, it);
       const main = take(items, 1, (it) => pred(it) && withImg(it));
       const rest = take(items, 4, pred);

@@ -45,6 +45,28 @@ export function inSection(s, it) {
   return !!hit && !(s.notCrypto && it.assets?.some((a) => MAJORS.includes(a)));
 }
 
+// Front page: topic order and mixing so no single topic (e.g. a burst of AI stories) dominates.
+export const FRONT_ORDER = ['macro', 'crypto', 'stocks', 'finance', 'markets', 'ai', 'web3', 'technology', 'commodities', 'fx', 'world'];
+export const frontSections = () => FRONT_ORDER.map((k) => SECTIONS.find((s) => s.key === k)).filter(Boolean);
+// An item's topic is its most specific matching section (an "AI data centre" story is AI,
+// not macro), independent of the order in which topics are shown.
+const SPECIFICITY = ['ai', 'web3', 'crypto', 'stocks', 'technology', 'macro', 'finance', 'markets', 'commodities', 'fx', 'world'];
+export const primarySection = (it) => SPECIFICITY.find((k) => inSection(SECTIONS.find((s) => s.key === k), it)) || 'other';
+// Round-robin across topics in FRONT_ORDER (relevance order kept inside each topic; off-topic last).
+export function mixTopics(items) {
+  const groups = new Map([...FRONT_ORDER, 'other'].map((k) => [k, []]));
+  for (const it of items) groups.get(primarySection(it)).push(it);
+  const queues = [...groups.values()].filter((g) => g.length);
+  const out = [];
+  while (queues.some((q) => q.length)) for (const q of queues) if (q.length) out.push(q.shift());
+  return out;
+}
+// Keeps list order but allows at most `max` items per topic.
+export function capPerTopic(items, max) {
+  const n = {};
+  return items.filter((it) => { const k = primarySection(it); n[k] = (n[k] || 0) + 1; return n[k] <= max; });
+}
+
 // App routes: [path, en title, es title, en description, indexable]
 const D = 'Bilingual financial news and market intelligence: macro, markets and crypto, with sources linked.';
 export const PAGES = {
