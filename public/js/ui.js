@@ -138,3 +138,23 @@ export function segmented(options, value, onChange) {
   render(value);
   return wrap;
 }
+
+// Anonymous per-browser key for persistent alerts. Generated once, never sent anywhere but
+// our own API (header x-void-key); the server stores only its SHA-256 hash.
+export function voidKey() {
+  let k = store('ownerKey', null);
+  if (!k || !/^[A-Za-z0-9_-]{32,128}$/.test(k)) {
+    const b = crypto.getRandomValues(new Uint8Array(32));
+    k = btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    persist('ownerKey', k);
+  }
+  return k;
+}
+
+export async function authApi(path, opts = {}) {
+  const res = await fetch(path, { method: opts.method || 'GET', headers: { 'content-type': 'application/json', 'x-void-key': voidKey() }, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  let data = null;
+  try { data = await res.json(); } catch { /* non-JSON */ }
+  if (!res.ok) { const e = new Error(data?.error?.message || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  return data;
+}

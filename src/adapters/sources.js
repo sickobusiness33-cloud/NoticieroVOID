@@ -61,7 +61,7 @@ export const CB_MEETINGS = [
     '2027-01-27', '2027-03-17', '2027-04-28', '2027-06-09', '2027-07-28', '2027-09-15', '2027-10-27', '2027-12-08']
     .map((date) => ({ date, time: '14:00', tz: 'America/New_York', region: 'US', event: 'FOMC rate decision', eventEs: 'Decisión de tipos del FOMC', source: 'Federal Reserve', sourceUrl: 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', markets: ['UST', 'USD', 'SPX', 'BTC'], importance: 'high' })),
   ...['2026-10-29', '2026-12-17', '2027-02-04', '2027-03-18', '2027-04-29', '2027-06-10', '2027-07-22', '2027-09-09', '2027-10-28', '2027-12-16']
-    .map((date) => ({ date, time: '14:15', tz: 'Europe/Frankfurt', region: 'EU', event: 'ECB monetary policy decision', eventEs: 'Decisión de política monetaria del BCE', source: 'European Central Bank', sourceUrl: 'https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html', markets: ['EUR', 'Bunds', 'USD'], importance: 'high' })),
+    .map((date) => ({ date, time: '14:15', tz: 'Europe/Berlin', region: 'EU', event: 'ECB monetary policy decision', eventEs: 'Decisión de política monetaria del BCE', source: 'European Central Bank', sourceUrl: 'https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html', markets: ['EUR', 'Bunds', 'USD'], importance: 'high' })),
 ];
 
 // U.S. Treasury upcoming auctions (FiscalData, public).

@@ -12,6 +12,9 @@ import { liquidityLab } from './services/liquidity.js';
 import * as ai from './services/ai.js';
 import { universe } from './services/assets.js';
 import { scanner } from './services/memescan.js';
+import * as lab from './services/lab.js';
+import * as alerts from './services/alerts.js';
+import * as cal2 from './services/calendar2.js';
 import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -216,6 +219,74 @@ const routes = {
     return json(await calendar(env, { from, to }));
   },
 
+  // ---------------- Quantum Lab (whale tracker) ----------------
+  'GET /api/lab/search': async (req, env) => {
+    if (!(await rateLimit(env, req, 'lab', 60, 60))) return apiError(429, 'rate_limited', 'Too many searches; wait a minute.');
+    return json(await lab.search(env, q(new URL(req.url), 'q')));
+  },
+  'GET /api/lab/asset': async (req, env) => {
+    const u = new URL(req.url);
+    return json(await lab.asset(env, { kind: q(u, 'kind'), id: q(u, 'id'), cik: q(u, 'cik'), chain: q(u, 'chain'), address: q(u, 'address') }));
+  },
+  'GET /api/lab/holders': async (req, env) => {
+    const u = new URL(req.url);
+    if (!(await rateLimit(env, req, 'lab', 60, 60))) return apiError(429, 'rate_limited', 'Too many requests; wait a minute.');
+    return json(await lab.holders(env, { chain: q(u, 'chain'), address: q(u, 'address'), native: q(u, 'native') === '1' }));
+  },
+  'GET /api/lab/wallet': async (req, env) => {
+    const u = new URL(req.url);
+    if (!(await rateLimit(env, req, 'lab', 60, 60))) return apiError(429, 'rate_limited', 'Too many requests; wait a minute.');
+    const chain = q(u, 'chain'), address = q(u, 'address');
+    const [w, act] = await Promise.all([lab.wallet(env, chain, address), lab.walletActivity(env, chain, address).catch((e) => ({ events: [], error: e.message }))]);
+    return json({ ...w, activity: act });
+  },
+  'GET /api/lab/wallet/activity': async (req, env) => {
+    const u = new URL(req.url);
+    if (!(await rateLimit(env, req, 'lab', 60, 60))) return apiError(429, 'rate_limited', 'Too many requests; wait a minute.');
+    return json({ ...(await lab.walletActivity(env, q(u, 'chain'), q(u, 'address'))), fetchedAt: new Date().toISOString() });
+  },
+  'GET /api/lab/wallet/history': async (req, env) => {
+    const u = new URL(req.url);
+    return json(await lab.tokenHistory(env, q(u, 'chain'), q(u, 'address'), q(u, 'token')));
+  },
+
+  // ---------------- Alerts (persistent, per anonymous owner key) ----------------
+  'GET /api/alerts/state': async (req, env) => json(await alerts.state(env, await alerts.ownerFrom(env, req))),
+  'POST /api/alerts/watch': async (req, env) => json(await alerts.watch(env, await alerts.ownerFrom(env, req), await readJson(req))),
+  'POST /api/alerts/watch/toggle': async (req, env) => { const b = await readJson(req); return json(await alerts.setWalletEnabled(env, await alerts.ownerFrom(env, req), b.id, b.enabled)); },
+  'POST /api/alerts/watch/delete': async (req, env) => json(await alerts.unwatch(env, await alerts.ownerFrom(env, req), (await readJson(req)).id)),
+  'POST /api/alerts/rules': async (req, env) => json(await alerts.saveRule(env, await alerts.ownerFrom(env, req), await readJson(req))),
+  'POST /api/alerts/rules/delete': async (req, env) => json(await alerts.deleteRule(env, await alerts.ownerFrom(env, req), (await readJson(req)).id)),
+  'GET /api/alerts/events': async (req, env) => json(await alerts.events(env, await alerts.ownerFrom(env, req), { since: q(new URL(req.url), 'since') })),
+  'GET /api/alerts/feed': async (req, env) => json(await alerts.feed(env, await alerts.ownerFrom(env, req))),
+  'POST /api/alerts/read': async (req, env) => json(await alerts.markRead(env, await alerts.ownerFrom(env, req), (await readJson(req)).ids)),
+  'POST /api/alerts/settings': async (req, env) => json(await alerts.saveSettings(env, await alerts.ownerFrom(env, req), await readJson(req))),
+  // Check the caller's own watched wallets now (same engine as the cron), rate-limited.
+  'POST /api/alerts/check': async (req, env) => {
+    const owner = await alerts.ownerFrom(env, req);
+    if (!(await rateLimit(env, req, 'alertcheck', 4, 60))) return apiError(429, 'rate_limited', 'Check limited to 4 per minute.');
+    return json(await alerts.scan(env, { maxWallets: 10, onlyOwner: owner }));
+  },
+
+  // ---------------- Intelligence Calendar ----------------
+  'GET /api/cal/range': async (req, env) => {
+    const u = new URL(req.url);
+    const r = await cached(env, `cal2:${q(u, 'from')}:${q(u, 'to')}`, 600, () => cal2.range(env, q(u, 'from'), q(u, 'to')));
+    return json({ ...r.value, cachedAt: new Date(r.cachedAt).toISOString() });
+  },
+  'GET /api/cal/impact': async (req, env) => {
+    const u = new URL(req.url);
+    if (!(await rateLimit(env, req, 'calimpact', 30, 60))) return apiError(429, 'rate_limited', 'Too many requests; wait a minute.');
+    const assets = (q(u, 'assets') || '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
+    const r = await cached(env, `calimp:${q(u, 'date')}:${assets.join(',')}`, 900, () => cal2.impact(env, q(u, 'date'), assets));
+    return json({ ...r.value, cachedAt: new Date(r.cachedAt).toISOString() });
+  },
+  'GET /api/cal/news': async (req, env) => {
+    const d = q(new URL(req.url), 'date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return apiError(400, 'bad_date', 'date must be YYYY-MM-DD');
+    return json({ date: d, items: await cal2.dayNews(env, d) });
+  },
+
   'POST /api/admin/ingest': async (req, env) => {
     requireAdmin(req, env);
     return json(await ingest(env));
@@ -289,12 +360,21 @@ export default {
 
   // Cron: news ingestion every 15 min; AI briefing pre-generation every 6h (if configured).
   async scheduled(event, env, ctx) {
+    // Every minute: persistent whale alerts. News ingestion runs on the quarter hour.
+    if (event.cron === '* * * * *') {
+      if (env.DB) {
+        try { const r = await alerts.scan(env); log('info', 'cron_alert_scan', { scanned: r.scanned, fired: r.report.reduce((a, x) => a + (x.fired || 0), 0) }); }
+        catch (e) { log('error', 'cron_alert_scan_failed', { error: e.message }); }
+      }
+      if (new Date(event.scheduledTime).getUTCMinutes() % 15 !== 0) return;
+    }
     try {
       const r = await ingest(env);
       log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored });
     } catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
     // Warm the FRED cache (stored in KV when bound) so user requests rarely hit FRED directly.
     if (event.cron === '5 */6 * * *') {
+      ctx.waitUntil(cal2.persist(env).then((r) => log('info', 'cron_calendar_persist', r)).catch((e) => log('error', 'cron_calendar_persist_failed', { error: e.message })));
       ctx.waitUntil(Promise.allSettled(Object.keys(CATALOG).map((id) => macro.series(env, id))).then((r) => log('info', 'cron_fred_warm', { ok: r.filter((x) => x.status === 'fulfilled').length, total: r.length })));
     }
     if (event.cron === '5 */6 * * *' && ai.aiEnabled(env)) {

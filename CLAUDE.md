@@ -28,6 +28,12 @@ and pushes on its own. Pushing to `main` deploys to production automatically
 - Shared analytics live in `public/js/shared/` and need unit tests in `test/`.
 - Ads only through `public/js/ads.js` (Coinzilla), always labelled Advertisement/Publicidad.
 
+## Data that must never be invented here
+- Holders, wallet movements, alerts and calendar events always come from a named provider; when a provider
+  or credential is missing, return an explicit limitation (see README "Quantum Lab & Intelligence Calendar").
+- Never classify a transfer as a buy/sell, never attribute identity to an unlabelled wallet, never show
+  probabilities without a calibrated model. D1 schema changes go in `migrations/` and must be applied remotely.
+
 ## Layout
 - `public/` SPA (no build step): `js/app.js` router, `js/views.js` + `js/views2.js` pages,
   `js/charts.js`, `css/app.css` design tokens.

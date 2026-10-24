@@ -189,3 +189,15 @@ export async function derivatives(insts = ['BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SO
   }
   return out;
 }
+
+// Search coins by name/symbol (CoinGecko /search).
+export async function cgSearch(env, q) {
+  const body = await cg(env, `/search?query=${encodeURIComponent(q)}`);
+  return (body.coins || []).map((c) => ({ id: c.id, symbol: c.symbol, name: c.name, thumb: c.thumb, market_cap_rank: c.market_cap_rank }));
+}
+
+// Coin detail incl. contract addresses per platform (CoinGecko /coins/{id}).
+export async function cgCoin(env, id) {
+  if (!/^[a-z0-9-]{1,80}$/.test(id)) throw Object.assign(new Error('Invalid coin id'), { status: 400 });
+  return cg(env, `/coins/${id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`);
+}

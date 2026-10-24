@@ -18,11 +18,13 @@ A bilingual (English first, full Spanish) financial-intelligence newsroom and te
 | Macro Intelligence | `#/macro`, `#/macro/:id` | 36 official series grouped by theme: latest, previous, change, 5-year percentile/range, history chart, implications, source link | FRED (Fed, BLS, BEA, Treasury, ECB, BoJ, ICE BofA, Chicago Fed via FRED) |
 | Intel Feed | `#/news` | Aggregated EN/ES headlines: categories, asset/country tags, de-duplication, breaking flags, relevance ranking, search, saved articles, per-article AI analysis, D1 archive search | 12 publisher/official feeds |
 | AI Analyst | `#/analyst` | Daily briefing + on-demand reports: executive summary, regime analysis, bull/base/bear scenarios, cited evidence | Claude API over a retrieved evidence pack |
-| Calendar | `#/calendar` | FOMC & ECB decisions, Treasury auctions, BLS/BEA releases with previous/actual; consensus deliberately blank | Fed/ECB calendars, FiscalData, FRED releases |
+| Intelligence Calendar | `#/calendar` | Year (default), month, week and day views; colour legend (blue macro, orange central banks/rates, purple crypto, green corporate/markets, red high-risk, grey past); status, confirmation, timezone and source per event; reschedule tracking in D1; per-date impact analysis (conditional scenarios, measured historical comparables, what to watch, no uncalibrated probabilities); news per day | Fed & ECB calendars, BEA official ICS, Treasury FiscalData, Cboe/OCC & Deribit expiry rules, FRED (key), Finnhub (key) |
+| Calendar (legacy list) | — | FOMC & ECB decisions, Treasury auctions, BLS/BEA releases with previous/actual; consensus deliberately blank | Fed/ECB calendars, FiscalData, FRED releases |
 | Liquidity Lab | `#/liquidity` | Fed net liquidity (measured), TGA, RRP, reserves, ECB/BoJ assets, M2, SOFR, real yields, dollar, stablecoins; documented composite score + sensitivity | FRED, DefiLlama |
 | Crypto Macro | `#/crypto-macro` | Correlations with significance bounds, rolling correlation, realized vol, conditional returns, FOMC event study, lead–lag, stablecoins/TVL | CoinGecko, FRED, DefiLlama |
 | Meme Terminal | `#/memecoins` | Live Solana scanner (60 s polling): new launches, pump.fun, trending 5m/1h; momentum score, activity signals (rocket launch, volume surge, buy pressure, breakout, near graduation), contract checks (mint/freeze authority, honeypot, dev %, top-10 holders), risk level, on-page/browser/sound alerts for new signals, memecoin news, market regime, ad slots | GeckoTerminal, news feeds, CoinGecko, DefiLlama |
-| Quant Lab | `#/lab` | Causal backtests (SMA cross, RSI, momentum, breakout, buy & hold), costs/slippage, optional macro filter with publication lag, 70/30 split, walk-forward, trade list, CSV/JSON export, saved experiments | CoinGecko |
+| Quantum Lab · Whale Tracker | `#/lab` (tab 1) | Universal search (coins, tokens by contract/mint, Solana memecoins, wallets, US stocks), asset card, top-holder ranking with % of stated supply, value, concentration and evidence-based labels, wallet view (positions, classified activity with tx hash/status, balance history), watchlist, configurable persistent alerts (10 rule types), alert center, live feed with filters | Blockscout (ETH, Base, Arbitrum, Optimism, Polygon), Solana RPC, CoinGecko / GeckoTerminal, SEC EDGAR, D1 + cron |
+| Quantum Lab · Backtests | `#/lab` (tab 2) | Causal backtests (SMA cross, RSI, momentum, breakout, buy & hold), costs/slippage, optional macro filter with publication lag, 70/30 split, walk-forward, trade list, CSV/JSON export, saved experiments | CoinGecko |
 | Data Status | `#/status` | Provider health, feed status, configuration | — |
 
 Every data widget shows its **status badge** (`LIVE`, `DELAYED`, `HISTORICAL`, `ESTIMATED`, `UNAVAILABLE`, `STALE`), its unit, source link and last successful update. Nothing on the site is real-time streaming, so nothing is labelled `LIVE`.
@@ -63,6 +65,25 @@ test/                   node:test suites (39 tests)
 ```
 
 **Adding a provider:** write an adapter in `src/adapters/` using `upstream()` (which gives you timeout, retries and health tracking). Wrap calls in `cached()` with a TTL that matches the provider's publication frequency, and return `{date, value}` series so the shared analytics work unchanged.
+
+## Quantum Lab & Intelligence Calendar — operations
+
+**Persistent alerts.** The browser generates a random key (stored locally) and sends it as `x-void-key`; the server stores only its SHA-256. Watched wallets, rules, classified wallet events and fired alerts live in D1. The `* * * * *` cron scans the least-recently-checked watched wallets (6 per run, ~15 latest transactions each) and evaluates rules, so alerts fire with every tab closed. Duplicates are impossible (`UNIQUE(rule_id, wallet_event_id)`, deterministic event ids). Only movements after a rule's creation can trigger it. Delivery: in-app center (+ browser notifications while VOID is open) and Telegram when `TELEGRAM_BOT_TOKEN` is set and the user saves a chat id. Web Push (alerts on a closed browser) is not implemented: it needs VAPID keys and a push-encryption implementation.
+
+**Classification.** Buy/sell only when the same transaction shows the wallet giving one asset and receiving another (swap) or a router `swap*` call; everything else is transfer in/out. Labels only from explorer evidence (Blockscout public tags / verified names) or, on Solana, the on-chain owner program (pools, bonding curves, burn address).
+
+**Latency.** Blockscout indexes within seconds; Solana RPC at `confirmed` commitment. Alert latency = cron interval (~1 min) + provider delay; open wallet views refresh every 30 s. No WebSocket streaming is used (would need a long-lived Durable Object and a paid RPC with WebSocket support).
+
+| Needed for | Setting | Cost |
+|---|---|---|
+| Solana holders, wallets and Solana alerts | `SOLANA_RPC_URL` (e.g. Helius free tier) — public RPC returns 403/429 | Free tier available |
+| Stocks (SEC EDGAR search + 13D/13G/Form 4 filings) | `SEC_USER_AGENT="NoticieroVOID you@yourdomain.com"` (SEC requires a contact) | Free |
+| CPI, payrolls, claims, PPI, retail sales on the calendar | `FRED_API_KEY` | Free |
+| Earnings on the calendar | `FINNHUB_API_KEY` | Free tier |
+| Telegram alerts | `TELEGRAM_BOT_TOKEN` (create a bot with @BotFather) | Free |
+| Heavier alert volume (many wallets) | Workers Paid plan (more CPU per cron run) | US$5/month |
+| Token unlocks / protocol events | Not integrated (paid providers) | Paid |
+| Institutional 13F holdings and stock prices | Not integrated (licensed data) | Paid |
 
 ## Run locally
 
