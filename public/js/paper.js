@@ -166,6 +166,7 @@ export async function article({ params }) {
       const i = list.findIndex((x) => x.url === it.url);
       if (i >= 0) list.splice(i, 1); else list.unshift({ id: it.id, url: it.url, title: it.title, source: it.source, publishedAt: it.publishedAt, lang: it.lang, savedAt: new Date().toISOString() });
       persist('saved', list.slice(0, 300));
+      import('./saved-sync.js').then((m) => m.pushSaved());
       saveBtn.textContent = i >= 0 ? t('save') : t('saved_ok');
     } }, isSaved ? t('saved_ok') : t('save'));
     const aiBox = h('div');

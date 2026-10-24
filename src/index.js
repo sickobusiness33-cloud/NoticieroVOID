@@ -18,6 +18,9 @@ import * as cal2 from './services/calendar2.js';
 import { officialText } from './services/official.js';
 import { story, pregenerate } from './services/story.js';
 import { crawlFile, renderPage, siteUrl } from './services/site.js';
+import * as account from './services/account.js';
+import * as billing from './services/billing.js';
+import { predictionMarkets } from './adapters/polymarket.js';
 import { impactFor } from '../public/js/shared/impact.js';
 import { SECTIONS, inSection } from '../public/js/shared/seo.js';
 
@@ -32,7 +35,7 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https:",
   "frame-src https:",
   "img-src 'self' data: https:",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
   "font-src 'self' https://fonts.gstatic.com",
   "connect-src 'self' https:",
   "worker-src 'self'",
@@ -59,17 +62,22 @@ function requireAdmin(request, env) {
 function timingSafeEqual(a, b) { let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i); return d === 0; }
 
 const routes = {
-  'GET /api/config': async (req, env) => json({
+  'GET /api/config': async (req, env) => {
+    const pro = await proFor(env, req);
+    return json({
     name: 'Noticiero VOID', product: 'VOID TERMINAL',
     ai: ai.aiEnabled(env), fredKey: !!env.FRED_API_KEY, archive: !!env.DB,
-    coinzilla: {
+    // VOID PRO members get no VOID-managed ad slots (decided here, from the session cookie).
+    ads: !pro,
+    coinzilla: pro ? null : {
       // Zone IDs are public by design (they are embedded in page HTML).
       leaderboard: env.COINZILLA_ZONE_LEADERBOARD || null, // 728x90
       rectangle: env.COINZILLA_ZONE_RECTANGLE || null, // 300x250
       mobile: env.COINZILLA_ZONE_MOBILE || null, // 320x100
       sticky: env.COINZILLA_STICKY_ZONE || null,
     },
-  }, 200, { 'cache-control': 'public, max-age=300' }),
+  }, 200, { 'cache-control': account.readCookie(req, account.SESSION_COOKIE) ? 'private, no-store' : 'public, max-age=300', vary: 'Cookie' });
+  },
 
   'GET /api/health': async (req, env) => json({ providers: healthSnapshot(), bindings: { kv: !!env.CACHE, d1: !!env.DB, ai: ai.aiEnabled(env), fredKey: !!env.FRED_API_KEY }, now: new Date().toISOString() }),
 
@@ -324,12 +332,92 @@ const routes = {
     return json({ date: d, items: await cal2.dayNews(env, d) });
   },
 
+  // ---------------- Accounts & VOID PRO ----------------
+  'GET /api/me': async (req, env) => {
+    const user = await account.currentUser(env, req);
+    const ent = user ? billing.entitlement(await billing.subscriptionFor(env, user.id)) : { state: 'none', pro: false };
+    return json({
+      signedIn: !!user, user: user ? { email: user.email, name: user.name, picture: user.picture } : null, pro: ent,
+      authReady: !!env.GOOGLE_CLIENT_ID, googleClientId: env.GOOGLE_CLIENT_ID || null, billingReady: billing.billingConfigured(env),
+      price: billing.PRO_PRICE,
+    }, 200, { 'cache-control': 'private, no-store', vary: 'Cookie' });
+  },
+  'POST /api/auth/google': async (req, env) => {
+    if (!account.sameOrigin(req)) return apiError(403, 'bad_origin', 'Cross-site request refused');
+    if (!(await rateLimit(env, req, 'auth', 10, 60))) return apiError(429, 'rate_limited', 'Too many sign-in attempts; wait a minute.');
+    const { user, cookie } = await account.signIn(env, req, (await readJson(req)).credential);
+    return json({ signedIn: true, user: { email: user.email, name: user.name, picture: user.picture } }, 200, { 'set-cookie': cookie });
+  },
+  'POST /api/auth/logout': async (req, env) => {
+    if (!account.sameOrigin(req)) return apiError(403, 'bad_origin', 'Cross-site request refused');
+    return json({ signedIn: false }, 200, { 'set-cookie': await account.signOut(env, req) });
+  },
+  'POST /api/pro/checkout': async (req, env) => {
+    const user = await signedInUser(env, req);
+    if (!(await rateLimit(env, req, 'checkout', 5, 60))) return apiError(429, 'rate_limited', 'Too many checkout attempts; wait a minute.');
+    return json(await billing.createCheckout(env, user, siteUrl(env, new URL(req.url))));
+  },
+  'POST /api/pro/portal': async (req, env) => json(await billing.createPortal(env, await signedInUser(env, req), siteUrl(env, new URL(req.url)))),
+  'POST /api/pro/sync': async (req, env) => {
+    const user = await signedInUser(env, req);
+    return json({ pro: await billing.syncCheckout(env, user, (await readJson(req)).session_id) });
+  },
+  // Stripe → VOID. Authenticated by the webhook signature, not by cookies.
+  'POST /api/stripe/webhook': async (req, env) => json(await billing.handleWebhook(env, req)),
+  // PRO feature: saved stories synced to the account. Entitlement is checked on every call.
+  'GET /api/pro/lists/saved': async (req, env) => {
+    const user = await proUser(env, req);
+    const row = await env.DB.prepare('SELECT data, updated_at AS updatedAt FROM user_lists WHERE user_id = ? AND kind = ?').bind(user.id, 'saved').first();
+    return json({ items: row ? JSON.parse(row.data) : [], updatedAt: row?.updatedAt || null }, 200, { 'cache-control': 'private, no-store' });
+  },
+  'PUT /api/pro/lists/saved': async (req, env) => {
+    const user = await proUser(env, req);
+    const body = await readJson(req, 200_000);
+    const items = (Array.isArray(body.items) ? body.items : []).slice(0, 500).filter((x) => x && typeof x.url === 'string' && /^https?:\/\//.test(x.url))
+      .map((x) => ({ id: typeof x.id === 'string' ? x.id.slice(0, 40) : null, url: x.url.slice(0, 600), title: String(x.title || '').slice(0, 300), source: String(x.source || '').slice(0, 80), publishedAt: x.publishedAt || null, lang: x.lang === 'es' ? 'es' : 'en', savedAt: x.savedAt || new Date().toISOString() }));
+    await env.DB.prepare(`INSERT INTO user_lists (user_id, kind, data, updated_at) VALUES (?1, 'saved', ?2, ?3)
+      ON CONFLICT(user_id, kind) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`).bind(user.id, JSON.stringify(items), new Date().toISOString()).run();
+    return json({ saved: items.length });
+  },
+
+  // ---------------- Prediction markets & newsletter ----------------
+  'GET /api/prediction-markets': async (req, env) => {
+    const r = await predictionMarkets(env);
+    return json({ ...r.value, meta: meta({ source: 'Polymarket (Gamma API)', sourceUrl: 'https://polymarket.com', status: 'delayed', frequency: '2 min cache', unit: 'USDC per share (0–1)', cachedAt: r.cachedAt, stale: r.stale, note: 'Traded market prices on Polymarket, not VOID forecasts or calibrated probabilities.' }) });
+  },
+  'GET /api/news/reports': async (req, env) => {
+    if (!env.DB) return apiError(503, 'archive_unavailable', 'Requires the D1 binding "DB".');
+    const { results } = await env.DB.prepare(`SELECT a.id, a.title, a.source, a.lang, a.categories, a.assets, s.headline, s.paragraphs, s.created_at AS createdAt FROM stories s
+      JOIN articles a ON a.id = s.id AND a.lang = s.lang WHERE s.status = 'ok' AND a.official = 0 ORDER BY s.created_at DESC LIMIT 60`).all();
+    const items = results.map((r) => ({ id: r.id, title: r.title, source: r.source, lang: r.lang, headline: r.headline, lead: JSON.parse(r.paragraphs || '[]')[0] || '', createdAt: r.createdAt,
+      categories: (r.categories || '').split(','), assets: (r.assets || '').split(',') })).filter((r) => SECTIONS.some((sec) => inSection(sec, r))).slice(0, 30);
+    return json({ items });
+  },
+
   'POST /api/admin/ingest': async (req, env) => {
     requireAdmin(req, env);
     const { items, ...r } = await ingest(env);
     return json(r);
   },
 };
+
+// Session-authenticated helpers (cookie + same-origin check for state-changing calls).
+async function signedInUser(env, req) {
+  if (req.method !== 'GET' && !account.sameOrigin(req)) throw Object.assign(new Error('Cross-site request refused'), { status: 403 });
+  const user = await account.currentUser(env, req);
+  if (!user) throw Object.assign(new Error('Sign in to continue.'), { status: 401 });
+  return user;
+}
+async function proUser(env, req) {
+  const user = await signedInUser(env, req);
+  if (!billing.entitlement(await billing.subscriptionFor(env, user.id)).pro) throw Object.assign(new Error('VOID PRO subscription required.'), { status: 403 });
+  return user;
+}
+async function proFor(env, req) {
+  if (!account.readCookie(req, account.SESSION_COOKIE)) return false;
+  const user = await account.currentUser(env, req).catch(() => null);
+  return !!user && billing.entitlement(await billing.subscriptionFor(env, user.id)).pro;
+}
 
 async function generateBriefing(env, lang, question = null) {
   const indIds = ['DFF', 'DGS2', 'DGS10', 'T10Y2Y', 'DFII10', 'T5YIE', 'CPIAUCSL', 'PCEPILFE', 'UNRATE', 'PAYEMS', 'ICSA', 'A191RL1Q225SBEA', 'NFCI', 'BAMLH0A0HYM2', 'VIXCLS', 'SP500', 'DTWEXBGS', 'DCOILWTICO', 'ECBDFR'];
@@ -377,9 +465,19 @@ async function servePage(request, env) {
   if (r.redirect) return r.redirect;
   const headers = secure(new Headers(r.response.headers), true);
   headers.set('content-type', 'text/html; charset=utf-8');
-  headers.set('cache-control', 'public, max-age=0, must-revalidate');
+  const signedIn = !!account.readCookie(request, account.SESSION_COOKIE);
+  headers.set('cache-control', signedIn ? 'private, no-store' : 'public, max-age=0, must-revalidate');
+  headers.set('vary', 'Cookie');
   headers.delete('etag');
   let res = new Response(r.response.body, { status: r.status, headers });
+  // VOID PRO: the server removes the Monetag tags VOID controls before the page is sent, so
+  // no ad script loads (and nothing can be re-enabled from the client).
+  if (signedIn && await proFor(env, request)) {
+    res = new HTMLRewriter()
+      .on('script[data-void-ads]', { element(el) { el.remove(); } })
+      .on('html', { element(el) { el.setAttribute('data-pro', '1'); } })
+      .transform(res);
+  }
   // Coinzilla site verification <meta> is injected server-side from configuration.
   if (env.COINZILLA_VERIFICATION) {
     res = new HTMLRewriter().on('head', {

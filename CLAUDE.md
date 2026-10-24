@@ -31,7 +31,11 @@ and pushes on its own. Pushing to `main` deploys to production automatically
   or reuse-with-attribution terms); never for commercial publishers.
 - Every user-facing string exists in English and Spanish (`public/js/i18n.js` or `tr(en, es)`).
 - Shared analytics live in `public/js/shared/` and need unit tests in `test/`.
-- Ads only through `public/js/ads.js` (Coinzilla), always labelled Advertisement/Publicidad.
+- Ads only through `public/js/ads.js` (Coinzilla, labelled Advertisement/Publicidad) or the Monetag tags in
+  `public/index.html` marked `data-void-ads` (the Worker strips them for VOID PRO members).
+- VOID PRO: entitlement is decided only on the server (`entitlement()` in src/services/billing.js from the
+  Stripe status in D1); never gate or grant premium features from client state. Only list PRO benefits that work.
+  Payment secrets are wrangler secrets (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET); never in code or vars.
 
 ## Data that must never be invented here
 - Holders, wallet movements, alerts and calendar events always come from a named provider; when a provider
@@ -40,7 +44,7 @@ and pushes on its own. Pushing to `main` deploys to production automatically
   probabilities without a calibrated model. D1 schema changes go in `migrations/` and must be applied remotely.
 
 ## Layout
-- `public/` SPA (no build step): `js/app.js` path router (real URLs, no `#/`; route modules lazy-load), `js/views.js` + `js/views2.js` pages,
+- `public/` SPA (no build step; React components are ported to vanilla JS in `js/components/`): `js/app.js` path router (real URLs, no `#/`; route modules lazy-load), `js/views.js` + `js/views2.js` pages,
   `js/charts.js`, `css/app.css` design tokens.
 - SEO: `src/services/site.js` server-renders every page into the SPA shell (title, canonical, robots,
   JSON-LD, crawlable body) and serves robots.txt, sitemaps, news sitemap and RSS. Canonical URLs and

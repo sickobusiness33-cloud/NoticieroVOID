@@ -16,12 +16,22 @@ export const articlePath = (it) => `/news/${it.id}/${slugify(it.title)}`;
 export const sectionPath = (key) => `/section/${key}`;
 
 export const SECTIONS = [
-  { key: 'macro', en: 'Economy & Central Banks', es: 'Economía y bancos centrales', cats: ['central-banks', 'inflation', 'labor', 'growth'],
-    desc: ['Central bank decisions, inflation, jobs and growth data, with links to every original report.', 'Decisiones de bancos centrales, inflación, empleo y crecimiento, con enlace a cada informe original.'] },
+  { key: 'macro', en: 'Economy & Central Banks', es: 'Economía y bancos centrales', cats: ['central-banks', 'inflation', 'labor', 'growth', 'geopolitics'],
+    desc: ['Central bank decisions, inflation, jobs, growth data and geopolitics, with links to every original report.', 'Bancos centrales, inflación, empleo, crecimiento y geopolítica, con enlace a cada informe original.'] },
+  { key: 'ai', en: 'AI', es: 'Inteligencia artificial', cats: ['ai'],
+    desc: ['Artificial intelligence news: models, agents, AI companies, chips and automation, linked to each source.', 'Noticias de inteligencia artificial: modelos, agentes, empresas de IA, chips y automatización, con enlace a cada fuente.'] },
   { key: 'markets', en: 'Markets', es: 'Mercados', cats: ['rates-bonds', 'markets'], notCrypto: true,
     desc: ['Stocks, bonds and rates: the latest market headlines from major financial publishers.', 'Bolsa, bonos y tipos: los últimos titulares de mercado de los principales medios financieros.'] },
   { key: 'crypto', en: 'Crypto', es: 'Cripto', cats: ['etf-flows', 'regulation', 'defi', 'stablecoins', 'memecoins'], assets: ['BTC', 'ETH', 'SOL', 'XRP'],
     desc: ['Bitcoin, Ethereum, Solana, ETFs, regulation, DeFi and stablecoins news.', 'Noticias de Bitcoin, Ethereum, Solana, ETF, regulación, DeFi y stablecoins.'] },
+  { key: 'web3', en: 'Web3', es: 'Web3', cats: ['web3', 'defi'],
+    desc: ['Web3 news: blockchain protocols, layer 2s, DeFi, tokenization and decentralized infrastructure.', 'Noticias Web3: protocolos blockchain, capas 2, DeFi, tokenización e infraestructura descentralizada.'] },
+  { key: 'stocks', en: 'Stocks', es: 'Bolsa', cats: ['stocks'], notCrypto: true,
+    desc: ['Stock market news: equities, earnings, IPOs, indices and Wall Street, linked to each publisher.', 'Noticias de bolsa: acciones, resultados, salidas a bolsa, índices y Wall Street, con enlace a cada medio.'] },
+  { key: 'technology', en: 'Technology', es: 'Tecnología', cats: ['technology'],
+    desc: ['Technology news: software, semiconductors, AI infrastructure, startups and innovation.', 'Noticias de tecnología: software, semiconductores, infraestructura de IA, startups e innovación.'] },
+  { key: 'finance', en: 'Finance', es: 'Finanzas', cats: ['rates-bonds', 'fx-dollar', 'commodities', 'etf-flows'], notCrypto: true,
+    desc: ['Finance news: bonds and rates, currencies, commodities, funds and investment products.', 'Noticias de finanzas: bonos y tipos, divisas, materias primas, fondos y productos de inversión.'] },
   { key: 'commodities', en: 'Commodities', es: 'Materias primas', cats: ['commodities'],
     desc: ['Oil, gold, metals and agricultural commodities news.', 'Noticias de petróleo, oro, metales y materias primas agrícolas.'] },
   { key: 'fx', en: 'Currencies', es: 'Divisas', cats: ['fx-dollar'],
@@ -52,6 +62,9 @@ export const PAGES = {
   '/status': { en: 'Data status', es: 'Estado de datos', desc: D, index: false },
   '/about': { en: 'About Noticiero VOID', es: 'Sobre Noticiero VOID', desc: 'Who we are, how Noticiero VOID works, where our data comes from and how to contact us.', index: true },
   '/editorial-policy': { en: 'Editorial policy, AI use and corrections', es: 'Política editorial, uso de IA y correcciones', desc: 'How Noticiero VOID selects sources, uses AI, separates news from advertising and handles corrections.', index: true },
+  '/prediction-markets': { en: 'Prediction markets — Polymarket prices on Fed, crypto, AI and stocks', es: 'Mercados de predicción — precios de Polymarket', desc: 'Live Polymarket prices for economy, Fed, crypto, AI and stock events, plus prediction-market news. Market prices, not forecasts.', index: true },
+  '/newsletter': { en: 'Newsletter and VOID Reports', es: 'Newsletter e Informes VOID', desc: 'The latest VOID Reports from Noticiero VOID and how to follow them by RSS. Email newsletter status and plans.', index: true },
+  '/pro': { en: 'VOID PRO — €7.50 per month', es: 'VOID PRO — 7,50 € al mes', desc: 'VOID PRO membership: no VOID-managed ads and saved stories synced to your account. €7.50 per month, cancel anytime.', index: true },
   '/privacy': { en: 'Privacy and cookies', es: 'Privacidad y cookies', desc: 'What data Noticiero VOID and its advertising partner process, and your choices.', index: true },
 };
 

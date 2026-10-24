@@ -3,6 +3,9 @@
 import { t, setLang, getLang } from './i18n.js';
 import { h, api, fmtUsd, fmtPct, signClass, fmtNum } from './ui.js';
 import { configureAds, adSlot, stickyAd } from './ads.js';
+import { createSparkleNavbar } from './components/sparkle-navbar.js';
+import { NAV_ITEMS, MORE_ITEMS, activeNavIndex } from './shared/nav.js';
+import { icon } from './icons.js';
 
 const lazy = (mod, name) => (ctx) => mod().then((m) => m[name](ctx));
 const paper = () => import('./paper.js'), views = () => import('./views.js'), views2 = () => import('./views2.js');
@@ -17,9 +20,12 @@ const ROUTES = [
   ['about', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
   ['editorial-policy', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
   ['privacy', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
+  ['prediction-markets', 'nav_predictions', lazy(() => import('./predictions.js'), 'predictionMarkets')],
+  ['newsletter', 'nav_newsletter', lazy(() => import('./predictions.js'), 'newsletter')],
+  ['pro', 'nav_pro', lazy(() => import('./pro.js'), 'proPage')],
 ];
 
-export const app = { config: null };
+export const app = { config: null, me: null };
 const main = document.getElementById('app');
 
 // Old #/ links (shared before real URLs existed) are moved to their path equivalent.
@@ -40,18 +46,64 @@ export function navigate(path) {
   render();
 }
 
+// Primary navigation: one SparkleNavbar instance; its active item always follows the URL
+// (link clicks, history back/forward, language changes).
+let sparkle = null;
+function navItems() { return NAV_ITEMS.map((it) => ({ label: getLang() === 'es' ? it.es : it.en, href: it.href })); }
+function renderNav() {
+  if (!sparkle) {
+    sparkle = createSparkleNavbar({ items: navItems(), color: '#00fffc', activeIndex: activeNavIndex(location.pathname), ariaLabel: t('nav_main'), onItemClick: (item) => navigate(item.href) });
+    document.getElementById('primaryNav').replaceChildren(sparkle.el);
+  } else {
+    const labels = navItems();
+    if (labels.some((x, i) => x.label !== sparkle.items[i]?.label)) sparkle.setItems(labels);
+    sparkle.el.setAttribute('aria-label', t('nav_main'));
+  }
+  sparkle.setActive(activeNavIndex(location.pathname));
+  const menu = document.getElementById('moreMenu');
+  menu.replaceChildren(...MORE_ITEMS.map((m) => h('a', { href: m.href, 'aria-current': location.pathname === m.href ? 'page' : null }, getLang() === 'es' ? m.es : m.en)));
+  const menuBtn = document.getElementById('menuBtn');
+  menuBtn.replaceChildren(h('span', { class: 'more-t' }, t('nav_more')), icon('chevron-down', 'more-ico'), icon('menu', 'more-burger'));
+  menuBtn.setAttribute('aria-label', t('nav_more'));
+}
+
+// Header account state comes from the server (/api/me); nothing here grants PRO features.
+export function renderAccount() {
+  const me = app.me;
+  const pro = me?.pro?.pro;
+  const proLink = document.getElementById('proLink');
+  proLink.replaceChildren(icon('crown'), document.createTextNode(pro ? 'PRO ✓' : 'PRO'));
+  proLink.classList.toggle('on', !!pro);
+  proLink.title = pro ? t('pro_active') : t('pro_get');
+  const acct = document.getElementById('acctLink');
+  acct.replaceChildren(icon('user'), h('span', { class: 'acct-t' }, me?.signedIn ? t('account') : t('sign_in')));
+  acct.setAttribute('aria-label', me?.signedIn ? `${t('account')}: ${me.user.email}` : t('sign_in'));
+}
+
+export async function refreshAccount() {
+  try { app.me = await api('/api/me'); } catch { app.me = { signedIn: false, pro: { state: 'none', pro: false } }; }
+  renderAccount();
+  return app.me;
+}
+
+function closeMore() {
+  const menu = document.getElementById('moreMenu');
+  menu.hidden = true;
+  document.getElementById('menuBtn').setAttribute('aria-expanded', 'false');
+}
+
 function renderChrome() {
   document.documentElement.lang = getLang();
-  document.getElementById('tagline').textContent = t('tagline');
   document.getElementById('footTag').textContent = t('sub');
   document.getElementById('disclaimer').textContent = t('disclaimer');
-  const { route } = parseLoc();
-  document.getElementById('nav').replaceChildren(...ROUTES.filter((x) => !x[3]?.hidden).map(([r, key]) => h('a', { href: `/${r}`, class: r === route ? 'on' : '', 'aria-current': r === route ? 'page' : null }, t(key))));
+  renderNav();
+  closeMore();
   const links = [['/section/macro', 'Economy', 'Economía'], ['/section/markets', 'Markets', 'Mercados'], ['/section/crypto', 'Crypto', 'Cripto'],
     ['/section/commodities', 'Commodities', 'Materias primas'], ['/section/fx', 'Currencies', 'Divisas'], ['/section/world', 'Geopolitics', 'Geopolítica'],
-    ['/about', 'About', 'Sobre nosotros'], ['/editorial-policy', 'Editorial policy', 'Política editorial'], ['/privacy', 'Privacy', 'Privacidad'], ['/rss.xml', 'RSS', 'RSS']];
+    ['/pro', 'VOID PRO', 'VOID PRO'], ['/about', 'About', 'Sobre nosotros'], ['/editorial-policy', 'Editorial policy', 'Política editorial'], ['/privacy', 'Privacy', 'Privacidad'], ['/rss.xml', 'RSS', 'RSS']];
   document.getElementById('footLinks').replaceChildren(...links.flatMap(([href, en, es], i) => [i ? ' · ' : '', h('a', { href }, getLang() === 'es' ? es : en)]));
   document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === getLang()));
+  if (app.me) renderAccount();
 }
 
 let renderSeq = 0;
@@ -76,7 +128,6 @@ async function render() {
   } catch (e) {
     if (seq === renderSeq) main.replaceChildren(h('div', { class: 'error-box' }, e.message));
   }
-  document.getElementById('nav').classList.remove('open');
   if (!first) window.scrollTo(0, 0);
 }
 
@@ -126,17 +177,27 @@ async function ticker() {
 }
 
 async function boot() {
-  try { app.config = await api('/api/config'); } catch { app.config = { ai: false, coinzilla: null }; }
+  // Ad eligibility and account state are both decided by the server for this session.
+  const [config] = await Promise.all([api('/api/config').catch(() => ({ ai: false, coinzilla: null, ads: true })), refreshAccount()]);
+  app.config = config;
   configureAds(app.config);
-  const top = document.getElementById('adTop');
-  top.replaceChildren(adSlot('leaderboard'));
-  stickyAd();
+  if (app.config.ads !== false) {
+    document.getElementById('adTop').replaceChildren(adSlot('leaderboard'));
+    stickyAd();
+  } else {
+    // VOID PRO: also drop the ad network's push service worker if this browser registered it.
+    navigator.serviceWorker?.getRegistrations?.().then((regs) => regs.filter((r) => /\/sw\.js/.test(r.active?.scriptURL || '')).forEach((r) => r.unregister())).catch(() => {});
+  }
   document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => { setLang(b.dataset.lang); render(); ticker(); }));
-  document.getElementById('menuBtn').addEventListener('click', (e) => {
-    const nav = document.getElementById('nav');
-    nav.classList.toggle('open');
-    e.currentTarget.setAttribute('aria-expanded', String(nav.classList.contains('open')));
+  const menuBtn = document.getElementById('menuBtn');
+  menuBtn.addEventListener('click', () => {
+    const menu = document.getElementById('moreMenu');
+    menu.hidden = !menu.hidden;
+    menuBtn.setAttribute('aria-expanded', String(!menu.hidden));
+    if (!menu.hidden) menu.querySelector('a')?.focus();
   });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.getElementById('moreMenu').hidden) { closeMore(); menuBtn.focus(); } });
+  document.addEventListener('click', (e) => { if (!e.target.closest?.('.more')) closeMore(); });
   // Keyboard navigation: "g" then a letter; "/" focuses the first search box.
   let g = false;
   document.addEventListener('keydown', (e) => {

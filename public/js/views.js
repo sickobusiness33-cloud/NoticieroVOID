@@ -17,6 +17,7 @@ function toggleSave(item, btn) {
   const i = list.findIndex((x) => x.url === item.url);
   if (i >= 0) list.splice(i, 1); else list.unshift({ id: item.id, url: item.url, title: item.title, source: item.source, publishedAt: item.publishedAt, lang: item.lang, savedAt: new Date().toISOString() });
   persist('saved', list.slice(0, 300));
+  import('./saved-sync.js').then((m) => m.pushSaved());
   if (btn) btn.textContent = i >= 0 ? t('save') : t('saved_ok');
 }
 
@@ -364,8 +365,9 @@ export async function calendarView() {
 
 // ================= SAVED / STATUS =================
 export async function saved() {
+  const synced = await import('./saved-sync.js').then((m) => m.pullSaved()).catch(() => false);
   const list = savedList();
-  return h('div', null, pageHead(t('nav_saved'), tr('Stored in this browser only.', 'Guardado solo en este navegador.')),
+  return h('div', null, pageHead(t('nav_saved'), synced ? tr('Synced to your VOID PRO account.', 'Sincronizado con tu cuenta VOID PRO.') : tr('Stored in this browser only. VOID PRO members can sync them to their account.', 'Guardado solo en este navegador. Los miembros VOID PRO pueden sincronizarlo con su cuenta.')),
     panel(null, list.length ? list.map((i) => h('div', { class: 'story' }, h('div', { class: 'by' }, h('b', null, i.source), fmtTime(i.publishedAt)), h('h3', null, h('a', { href: i.url, target: '_blank', rel: 'noopener' }, i.title)),
       h('div', null, h('button', { class: 'btn sm', style: 'margin:0', onclick: (e) => { toggleSave(i); e.currentTarget.closest('.story').remove(); } }, t('remove'))))) : h('p', { class: 'muted' }, t('no_data'))),
     h('div', { style: 'margin-top:14px' }, panel(tr('Saved research (Quant Lab)', 'Investigación guardada (Lab cuant)'), (store('experiments', []).length ? table([tr('Name', 'Nombre'), tr('Strategy', 'Estrategia'), tr('Asset', 'Activo'), tr('Saved', 'Guardado')], store('experiments', []).map((x) => [x.name, x.strategy.type, x.asset, fmtTime(x.savedAt)])) : h('p', { class: 'muted' }, t('no_data'))))));

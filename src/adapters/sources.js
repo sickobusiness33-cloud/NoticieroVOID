@@ -29,7 +29,18 @@ export const FEEDS = [
   { id: 'cryptoslate', source: 'CryptoSlate', url: 'https://cryptoslate.com/feed/', lang: 'en' },
   { id: 'bitcoinmagazine', source: 'Bitcoin Magazine', url: 'https://bitcoinmagazine.com/.rss/full/', lang: 'en' },
   { id: 'newsbtc', source: 'NewsBTC', url: 'https://www.newsbtc.com/feed/', lang: 'en' },
+  // AI, technology, Web3 and stocks (English). `topics` are added to every item of the feed.
+  { id: 'techcrunch-ai', source: 'TechCrunch', url: 'https://techcrunch.com/category/artificial-intelligence/feed/', lang: 'en', topics: ['ai', 'technology'] },
+  { id: 'verge-ai', source: 'The Verge', url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', lang: 'en', topics: ['ai'] },
+  { id: 'mit-tr', source: 'MIT Technology Review', url: 'https://www.technologyreview.com/feed/', lang: 'en', topics: ['technology'] },
+  { id: 'arstechnica', source: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', lang: 'en', topics: ['technology'] },
+  { id: 'verge', source: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', lang: 'en', topics: ['technology'] },
+  { id: 'blockworks', source: 'Blockworks', url: 'https://blockworks.co/feed', lang: 'en', topics: ['web3'] },
+  { id: 'thedefiant', source: 'The Defiant', url: 'https://thedefiant.io/api/feed', lang: 'en', topics: ['web3'] },
+  { id: 'seekingalpha', source: 'Seeking Alpha', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', topics: ['stocks'] },
   // Spanish
+  { id: 'xataka', source: 'Xataka', url: 'https://www.xataka.com/feedburner.xml', lang: 'es', topics: ['technology'] },
+  { id: 'genbeta', source: 'Genbeta', url: 'https://www.genbeta.com/feedburner.xml', lang: 'es', topics: ['technology'] },
   { id: 'investing-es', source: 'Investing.com España', url: 'https://es.investing.com/rss/news.rss', lang: 'es' },
   { id: 'investing-es-mkts', source: 'Investing.com España (mercados)', url: 'https://es.investing.com/rss/news_1.rss', lang: 'es' },
   { id: 'expansion', source: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/mercados.xml', lang: 'es' },

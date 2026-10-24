@@ -188,3 +188,33 @@ The Content-Security-Policy already allows `coinzillatag.com`, `*.coinzilla.com`
 - The cron pre-writes one VOID Report at :07/:22/:37/:52 for the newest story without one (max 40/day, inside the Workers AI free tier).
 - Configuration (`wrangler.toml` `[vars]`): `SITE_URL` (canonical origin), `GOOGLE_SITE_VERIFICATION`,
   `BING_SITE_VERIFICATION` (the `content` value of each engine's verification meta tag).
+
+## Navigation and VOID PRO
+
+**Navigation.** The header uses `public/js/components/sparkle-navbar.js` (vanilla port of the SparkleNavbar
+React component, GSAP indicator from `public/vendor/gsap.min.js`). Items and URL → active-item mapping live in
+`public/js/shared/nav.js`: AI, Web3, Crypto, Stocks, Finance, Macro, Prediction Markets, Technology, Markets
+(`/terminal`), Newsletter. Intel Feed, Quantum Lab, Liquidity Lab, Crypto Macro and the other tools stay
+available from the "More" menu. Browser libraries are vendored with `npm run vendor` (gsap, lucide-static).
+
+**VOID PRO (€7.50/month).** Google sign-in + Stripe Checkout (subscription mode, EUR) + Stripe customer portal.
+Entitlement is computed on the server from the Stripe status stored in D1 (`subscriptions`):
+`active`/`trialing` (also when cancellation is scheduled) = PRO; `past_due`/`unpaid`, `canceled`,
+`incomplete(_expired)` = not PRO. Members get: no VOID-managed ads (the Worker strips the `data-void-ads`
+Monetag tags from the HTML and `/api/config` returns `ads: false`, so Coinzilla slots are not created) and
+saved stories synced to their account (`/api/pro/lists/saved`, 403 without an active subscription).
+The pricing card is `public/js/components/pricing-card.js` on VOID's own WebGL `shader-card.js`
+(ShaderCard2 API; the Lightswind Pro original is not part of this project).
+
+Setup before billing can go live:
+
+| Where | What |
+| --- | --- |
+| Google Cloud Console → APIs & Services → Credentials | Create an OAuth client ID (Web). Authorized JavaScript origins: `https://noticierovoid.com` (+ `http://localhost:8787` for dev). Put the client ID in `GOOGLE_CLIENT_ID` (`wrangler.toml` `[vars]`; it is public). |
+| Stripe Dashboard → Developers → API keys | `npx wrangler secret put STRIPE_SECRET_KEY` (secret key, `sk_live_…` or `sk_test_…`). |
+| Stripe Dashboard → Developers → Webhooks | Endpoint `https://noticierovoid.com/api/stripe/webhook` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Then `npx wrangler secret put STRIPE_WEBHOOK_SECRET` (`whsec_…`). |
+| Stripe Dashboard → Settings → Billing → Customer portal | Activate the portal (allow cancel + update payment method). |
+| Optional | A Product "VOID PRO" with a recurring EUR 7.50 monthly Price → set `STRIPE_PRICE_ID`. Without it Checkout uses an inline EUR 7.50/month price. Configure tax/invoicing in Stripe as required for your business. |
+
+Until `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` exist the PRO page says subscriptions are not open and
+the checkout API returns 503; nothing can be charged.

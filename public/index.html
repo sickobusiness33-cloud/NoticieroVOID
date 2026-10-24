@@ -14,8 +14,10 @@
   <link rel="stylesheet" href="/css/app.css">
   <link rel="modulepreload" href="/js/app.js">
   <!-- Monetag (zones 301449, 301450) -->
-  <script src="https://quge5.com/88/tag.min.js" data-zone="301449" async data-cfasync="false"></script>
-  <script src="https://quge5.com/88/tag.min.js" data-zone="301450" async data-cfasync="false"></script>
+  <!-- data-void-ads: removed server-side for VOID PRO members (src/index.js servePage) -->
+  <script src="https://quge5.com/88/tag.min.js" data-zone="301449" async data-cfasync="false" data-void-ads></script>
+  <script src="https://quge5.com/88/tag.min.js" data-zone="301450" async data-cfasync="false" data-void-ads></script>
+  <script src="/vendor/gsap.min.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#app">Skip to content</a>
@@ -25,16 +27,28 @@
         <img src="/assets/logo.svg" alt="" width="34" height="34">
         <span class="brand-t"><b>NOTICIERO VOID</b><small>VOID TERMINAL</small></span>
       </a>
-      <p class="tagline" id="tagline"></p>
+      <div class="top-nav" id="primaryNav">
+        <!-- Static links for crawlers and no-JS readers; replaced by SparkleNavbar on boot. -->
+        <nav class="snav" aria-label="Main"><div class="snav-track">
+          <a class="snav-item" href="/section/ai">AI</a><a class="snav-item" href="/section/web3">Web3</a><a class="snav-item" href="/section/crypto">Crypto</a>
+          <a class="snav-item" href="/section/stocks">Stocks</a><a class="snav-item" href="/section/finance">Finance</a><a class="snav-item" href="/section/macro">Macro</a>
+          <a class="snav-item" href="/prediction-markets">Prediction Markets</a><a class="snav-item" href="/section/technology">Technology</a>
+          <a class="snav-item" href="/terminal">Markets</a><a class="snav-item" href="/newsletter">Newsletter</a>
+        </div></nav>
+      </div>
       <div class="top-tools">
         <span class="conn" id="conn" title="Connection status"><i></i><span></span></span>
         <div class="lang" role="group" aria-label="Language">
           <button data-lang="en">EN</button><button data-lang="es">ES</button>
         </div>
-        <button class="menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+        <a class="pro-link" id="proLink" href="/pro">PRO</a>
+        <a class="acct-link" id="acctLink" href="/pro" aria-label="Account"></a>
+        <div class="more">
+          <button class="more-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="moreMenu">More</button>
+          <nav class="more-menu" id="moreMenu" aria-label="More sections" hidden></nav>
+        </div>
       </div>
     </div>
-    <nav class="nav" id="nav" aria-label="Main"></nav>
     <div class="ticker" id="ticker" aria-label="Market strip"></div>
   </header>
   <div id="adTop" class="ad-top"></div>

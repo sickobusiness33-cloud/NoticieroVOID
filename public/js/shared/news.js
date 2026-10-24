@@ -146,6 +146,11 @@ export const CATEGORY_RULES = [
   ['memecoins', /\b(memecoins?|meme coins?|pump\.?fun|bonk|wif|dogecoin|doge|shib|pepe)\b/i],
   ['stablecoins', /\b(stablecoins?|usdt|usdc|tether|circle|genius act)\b/i],
   ['markets', /\b(bitcoin|btc|ether(eum)?|eth|solana|sol|xrp|crypto|cripto\w*|stocks?|s&p|nasdaq|equities|acciones)\b/i],
+  ['ai', /\b(artificial intelligence|ai|a\.i\.|genai|llms?|chatgpt|openai|anthropic|claude|gemini|deepmind|copilot|machine learning|ai agents?|inteligencia artificial|ia generativa|ia)\b/i],
+  ['technology', /\b(tech|technology|semiconductors?|chipmakers?|chips?|tsmc|nvidia|intel|amd|apple|microsoft|alphabet|google|meta platforms|startups?|software|cloud computing|data cent(er|re)s?|tecnolog[ií]a|semiconductores?|centros? de datos)\b/i],
+  ['web3', /\b(web3|blockchain|layer[- ]?2|rollups?|dapps?|smart contracts?|tokeni[sz]ation|daos?|nfts?|defi|ethereum|solana|cadena de bloques|contratos inteligentes|tokenizaci[oó]n)\b/i],
+  ['stocks', /\b(stocks?|shares|equit(y|ies)|s&p ?500|nasdaq|dow jones|earnings|ipos?|wall street|nyse|ibex|acciones|bolsa|resultados trimestrales)\b/i],
+  ['prediction-markets', /\b(polymarket|kalshi|prediction markets?|betting markets?|mercados? de predicci[oó]n)\b/i],
 ];
 
 export const ASSET_RULES = [
@@ -167,7 +172,8 @@ const BREAKING_RE = /\b(breaking|just in|urgent|surges?|plunges?|crash(es)?|halt
 
 export function classify(item) {
   const text = `${item.title} ${item.excerpt} ${(item.feedCategories || []).join(' ')}`;
-  const categories = CATEGORY_RULES.filter(([, re]) => re.test(text)).map(([c]) => c);
+  // Keyword rules plus the feed's own topics (e.g. an AI-only feed).
+  const categories = [...new Set([...CATEGORY_RULES.filter(([, re]) => re.test(text)).map(([c]) => c), ...(item.topics || [])])];
   return {
     categories: categories.length ? categories : ['general'],
     assets: ASSET_RULES.filter(([, re]) => re.test(text)).map(([a]) => a),

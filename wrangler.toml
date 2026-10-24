@@ -27,6 +27,10 @@ SITE_URL = "https://noticierovoid.com"
 # Search engine ownership verification tokens (the content="" value of their meta tag).
 GOOGLE_SITE_VERIFICATION = ""
 BING_SITE_VERIFICATION = ""
+# VOID PRO. Google OAuth client ID (public by design; from Google Cloud Console → Credentials).
+GOOGLE_CLIENT_ID = ""
+# Optional: a Stripe Price (EUR 7.50 monthly). Empty = Checkout uses an inline EUR 7.50/month price.
+STRIPE_PRICE_ID = ""
 # Coinzilla: paste your zone IDs (the part after "C-") and the site-verification code.
 COINZILLA_ZONE_LEADERBOARD = ""
 COINZILLA_ZONE_RECTANGLE = ""
@@ -64,3 +68,5 @@ migrations_dir = "migrations"
 #   npx wrangler secret put FRED_API_KEY        (optional: enables release calendar)
 #   npx wrangler secret put COINGECKO_API_KEY   (optional)
 #   npx wrangler secret put ADMIN_TOKEN         (protects POST /api/admin/ingest)
+#   npx wrangler secret put STRIPE_SECRET_KEY   (VOID PRO billing; sk_live_… or sk_test_…)
+#   npx wrangler secret put STRIPE_WEBHOOK_SECRET (whsec_… of the /api/stripe/webhook endpoint)

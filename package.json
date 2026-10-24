@@ -9,12 +9,15 @@
     "deploy": "wrangler deploy",
     "test": "node --test test/*.test.js",
     "db:migrate:local": "wrangler d1 migrations apply noticiero-void --local",
-    "db:migrate:remote": "wrangler d1 migrations apply noticiero-void --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply noticiero-void --remote",
+    "vendor": "node scripts/vendor.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0"
   },
   "devDependencies": {
+    "gsap": "^3.15.0",
+    "lucide-static": "^0.577.0",
     "wrangler": "^4.152.0"
   }
 }
