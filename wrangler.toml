@@ -28,7 +28,7 @@ SITE_URL = "https://noticierovoid.com"
 GOOGLE_SITE_VERIFICATION = ""
 BING_SITE_VERIFICATION = ""
 # VOID PRO. Google OAuth client ID (public by design; from Google Cloud Console → Credentials).
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "11782162369-b1nhmd1veinvhr348htb06qvv6i8rr86.apps.googleusercontent.com"
 # Optional: a Stripe Price (EUR 7.50 monthly). Empty = Checkout uses an inline EUR 7.50/month price.
 STRIPE_PRICE_ID = ""
 # Coinzilla: paste your zone IDs (the part after "C-") and the site-verification code.
