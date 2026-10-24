@@ -416,15 +416,22 @@ export default {
         try { const r = await alerts.scan(env); log('info', 'cron_alert_scan', { scanned: r.scanned, fired: r.report.reduce((a, x) => a + (x.fired || 0), 0) }); }
         catch (e) { log('error', 'cron_alert_scan_failed', { error: e.message }); }
       }
-      if (new Date(event.scheduledTime).getUTCMinutes() % 15 !== 0) return;
+      const minute = new Date(event.scheduledTime).getUTCMinutes();
+      // VOID Report for the newest story without one, in its own light run (:07, :22, :37, :52)
+      // so it never shares an invocation with the feed ingest. Newest items with a photo first.
+      if (minute % 15 === 7 && env.DB) {
+        try {
+          const recent = await news.recentArchived(env, { limit: 200, sinceHours: 24 });
+          const ranked = [...recent.filter((i) => i.image), ...recent.filter((i) => !i.image)];
+          log('info', 'cron_story_pregen', await pregenerate(env, ranked, 1));
+        } catch (e) { log('error', 'cron_story_pregen_failed', { error: e.message }); }
+        return;
+      }
+      if (minute % 15 !== 0) return;
     }
     try {
       const r = await ingest(env);
       log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored });
-      // VOID Report for the top new story, so indexable pages exist before readers arrive.
-      // Awaited (not waitUntil): an AI call can outlive the post-handler waitUntil window.
-      try { log('info', 'cron_story_pregen', await pregenerate(env, r.items, 1)); }
-      catch (e) { log('error', 'cron_story_pregen_failed', { error: e.message }); }
     } catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
     // Warm the FRED cache (stored in KV when bound) so user requests rarely hit FRED directly.
     if (event.cron === '5 */6 * * *') {

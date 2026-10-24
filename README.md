@@ -185,6 +185,6 @@ The Content-Security-Policy already allows `coinzillatag.com`, `*.coinzilla.com`
   `/news-sitemap.xml` (Google News, last 48 h) and `/rss.xml`, all generated from D1.
 - Indexing policy: story pages are `index` only when they carry an original VOID Report; headline-only pages and
   mirrored official releases are `noindex, follow`. Filtered URLs (`?category=…`) canonicalise to the base page.
-- The cron pre-writes VOID Reports for the top new stories (max 40/day, inside the Workers AI free tier).
+- The cron pre-writes one VOID Report at :07/:22/:37/:52 for the newest story without one (max 40/day, inside the Workers AI free tier).
 - Configuration (`wrangler.toml` `[vars]`): `SITE_URL` (canonical origin), `GOOGLE_SITE_VERIFICATION`,
   `BING_SITE_VERIFICATION` (the `content` value of each engine's verification meta tag).
