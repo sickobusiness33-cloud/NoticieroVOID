@@ -421,8 +421,10 @@ export default {
     try {
       const r = await ingest(env);
       log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored });
-      // VOID Reports for the top new stories, so indexable pages exist before readers arrive.
-      ctx.waitUntil(pregenerate(env, r.items).then((x) => log('info', 'cron_story_pregen', x)).catch((e) => log('error', 'cron_story_pregen_failed', { error: e.message })));
+      // VOID Report for the top new story, so indexable pages exist before readers arrive.
+      // Awaited (not waitUntil): an AI call can outlive the post-handler waitUntil window.
+      try { log('info', 'cron_story_pregen', await pregenerate(env, r.items, 1)); }
+      catch (e) { log('error', 'cron_story_pregen_failed', { error: e.message }); }
     } catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
     // Warm the FRED cache (stored in KV when bound) so user requests rarely hit FRED directly.
     if (event.cron === '5 */6 * * *') {
