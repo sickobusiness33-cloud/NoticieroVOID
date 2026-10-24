@@ -59,14 +59,30 @@ async function sourceBEA(env) {
 
 async function sourceTreasury(env, from, to) {
   const today = new Date().toISOString().slice(0, 10);
-  const past = from < today ? await cached(env, `cal:auctions:${from}`, 6 * 3600, () => upstream('treasury',
-    `https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query?filter=auction_date:gte:${from},auction_date:lte:${to}&sort=-auction_date&page%5Bsize%5D=400&fields=auction_date,security_type,security_term,high_yield,high_investment_rate,bid_to_cover_ratio,offering_amt,cusip,reopening,closing_time_comp`, { timeoutMs: 20000 })) : null;
-  const up = await cached(env, 'cal:auctions:upcoming', 3 * 3600, () => upstream('treasury',
-    'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/upcoming_auctions?sort=-record_date&page%5Bsize%5D=80', { timeoutMs: 15000 }));
+  const base = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od';
+  const fields = 'auction_date,security_type,security_term,high_yield,high_investment_rate,bid_to_cover_ratio,offering_amt,cusip,reopening,closing_time_comp';
+  // FiscalData can be slow from some networks: query past auctions in ≤92-day slices, each
+  // cached separately, and never let a failed slice hide the others or the upcoming list.
+  const slices = [];
+  for (let s0 = from; s0 <= (to < today ? to : today); ) {
+    const e0 = new Date(Math.min(Date.parse(s0) + 91 * 86400000, Date.parse(to < today ? to : today))).toISOString().slice(0, 10);
+    slices.push([s0, e0]);
+    s0 = new Date(Date.parse(e0) + 86400000).toISOString().slice(0, 10);
+  }
+  const parts = await Promise.allSettled([
+    ...slices.map(([a1, b1]) => cached(env, `cal:auctions:${a1}:${b1}`, b1 < today ? 24 * 3600 : 3 * 3600, () => upstream('treasury',
+      `${base}/auctions_query?filter=auction_date:gte:${a1},auction_date:lte:${b1}&sort=-auction_date&page%5Bsize%5D=200&fields=${fields}`, { timeoutMs: 30000, retries: 1 }))),
+    cached(env, 'cal:auctions:upcoming', 3 * 3600, () => upstream('treasury', `${base}/upcoming_auctions?sort=-record_date&page%5Bsize%5D=80`, { timeoutMs: 30000, retries: 1 })),
+  ]);
+  const failed = parts.filter((p) => p.status === 'rejected');
+  if (failed.length === parts.length) throw failed[0].reason;
+  const partial = failed.length ? `${failed.length} of ${parts.length} Treasury requests failed (${failed[0].reason?.message})` : null;
+  const past = { value: { data: parts.slice(0, -1).flatMap((p) => (p.status === 'fulfilled' ? p.value.value.data || [] : [])) } };
+  const up = parts.at(-1).status === 'fulfilled' ? parts.at(-1).value : { value: { data: [] } };
   const rows = [...(past?.value?.data || []), ...(up.value.data || [])];
   const seen = new Set();
   const nn = (v) => (v === null || v === 'null' || v === '' || v === undefined ? null : Number(v));
-  return rows.filter((r) => { const k = `${r.cusip}:${r.auction_date}`; if (seen.has(k)) return false; seen.add(k); return true; }).map((r) => {
+  const events = rows.filter((r) => { const k = `${r.cusip}:${r.auction_date}`; if (seen.has(k)) return false; seen.add(k); return true; }).map((r) => {
     const time = /11:30/.test(r.closing_time_comp || '') ? '11:30' : '13:00';
     const coupon = r.security_type !== 'Bill';
     return norm({
@@ -79,6 +95,7 @@ async function sourceTreasury(env, from, to) {
       assets: ['UST10Y', 'UST2Y'],
     });
   });
+  return { events, note: partial };
 }
 
 async function sourceFred(env, from, to) {
