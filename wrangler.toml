@@ -23,7 +23,7 @@ crons = ["* * * * *", "5 */6 * * *"]
 AI_MODEL = "claude-opus-5-5"
 AI_EFFORT = "medium"
 # Canonical origin for URLs, sitemaps and structured data (change when a custom domain is added).
-SITE_URL = "https://noticiero-void.tureganovictor79.workers.dev"
+SITE_URL = "https://noticierovoid.com"
 # Search engine ownership verification tokens (the content="" value of their meta tag).
 GOOGLE_SITE_VERIFICATION = ""
 BING_SITE_VERIFICATION = ""

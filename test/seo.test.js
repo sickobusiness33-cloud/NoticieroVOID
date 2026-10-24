@@ -36,7 +36,7 @@ test('head tags carry canonical, robots and social metadata', () => {
 
 test('sitemaps are well-formed and escape URLs', () => {
   const x = urlsetXml([{ loc: `${SITE}/a?b=1&c=2`, lastmod: '2026-10-24T00:00:00Z' }]);
-  assert.match(x, /^<\?xml version="1.0" encoding="UTF-8"\?>/);
+  assert.match(x, /^<\?xml version="1.0" encoding="UTF-8"\?>\n<\?xml-stylesheet type="text\/xsl" href="\/sitemap\.xsl"\?>/);
   assert.match(x, /<loc>https:\/\/void\.example\/a\?b=1&amp;c=2<\/loc><lastmod>2026-10-24T00:00:00Z<\/lastmod>/);
   assert.match(sitemapIndexXml([`${SITE}/s1.xml`]), /<sitemapindex[^>]*>\n<sitemap><loc>/);
   const n = newsSitemapXml([{ loc: `${SITE}/n`, lang: 'en', published: '2026-10-24T00:00:00Z', title: 'A & B' }]);

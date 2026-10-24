@@ -116,14 +116,14 @@ export function newsArticleLd(site, { item, story, section }) {
 const xmlEsc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
 export function urlsetXml(entries) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.map((e) => `<url><loc>${xmlEsc(e.loc)}</loc>${e.lastmod ? `<lastmod>${xmlEsc(e.lastmod)}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries.map((e) => `<url><loc>${xmlEsc(e.loc)}</loc>${e.lastmod ? `<lastmod>${xmlEsc(e.lastmod)}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`;
 }
 export function sitemapIndexXml(locs) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${locs.map((l) => `<sitemap><loc>${xmlEsc(l)}</loc></sitemap>`).join('\n')}\n</sitemapindex>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${locs.map((l) => `<sitemap><loc>${xmlEsc(l)}</loc></sitemap>`).join('\n')}\n</sitemapindex>\n`;
 }
 // Google News sitemap: articles published in the last 2 days, max 1000.
 export function newsSitemapXml(entries) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n${entries.slice(0, 1000).map((e) => `<url><loc>${xmlEsc(e.loc)}</loc><news:news><news:publication><news:name>${SITE_NAME}</news:name><news:language>${e.lang}</news:language></news:publication><news:publication_date>${xmlEsc(e.published)}</news:publication_date><news:title>${xmlEsc(e.title)}</news:title></news:news></url>`).join('\n')}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n${entries.slice(0, 1000).map((e) => `<url><loc>${xmlEsc(e.loc)}</loc><news:news><news:publication><news:name>${SITE_NAME}</news:name><news:language>${e.lang}</news:language></news:publication><news:publication_date>${xmlEsc(e.published)}</news:publication_date><news:title>${xmlEsc(e.title)}</news:title></news:news></url>`).join('\n')}\n</urlset>\n`;
 }
 export function rssXml(site, entries) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>${SITE_NAME}</title><link>${site}/</link><description>${xmlEsc(PAGES['/'].desc)}</description><atom:link href="${site}/rss.xml" rel="self" type="application/rss+xml"/>\n${entries.map((e) => `<item><title>${xmlEsc(e.title)}</title><link>${xmlEsc(e.loc)}</link><guid isPermaLink="true">${xmlEsc(e.loc)}</guid><pubDate>${new Date(e.published).toUTCString()}</pubDate><description>${xmlEsc(e.description)}</description></item>`).join('\n')}\n</channel></rss>\n`;
