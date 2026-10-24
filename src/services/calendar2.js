@@ -58,9 +58,17 @@ async function sourceBEA(env) {
 }
 
 // Primary: TreasuryDirect (official, includes results). Fallback: FiscalData.
+// Treasury hosts refuse some networks (Cloudflare egress gets timeouts / HTTP 525). Fail fast
+// and back off for 30 minutes so one blocked source never stalls the whole calendar.
+let treasuryBlockedUntil = 0;
 async function sourceTreasury(env, from, to) {
+  if (Date.now() < treasuryBlockedUntil) throw new Error('Treasury sources unreachable from this server network (backing off 30 min)');
   try { return await sourceTreasuryDirect(env, from, to); }
-  catch (e) { log('warn', 'treasurydirect_failed', { error: e.message }); return sourceFiscalData(env, from, to); }
+  catch (e) {
+    log('warn', 'treasurydirect_failed', { error: e.message });
+    try { return await sourceFiscalData(env, from, to); }
+    catch (e2) { treasuryBlockedUntil = Date.now() + 30 * 60000; throw e2; }
+  }
 }
 
 async function sourceTreasuryDirect(env, from, to) {
@@ -68,8 +76,8 @@ async function sourceTreasuryDirect(env, from, to) {
   const td = 'https://www.treasurydirect.gov/TA_WS/securities';
   const days = from < today ? Math.min(400, Math.ceil((Date.now() - Date.parse(from)) / 86400000) + 1) : 0;
   const [up, past] = await Promise.all([
-    cached(env, 'cal:td:upcoming', 3 * 3600, () => upstream('treasurydirect', `${td}/upcoming?format=json`, { timeoutMs: 20000, retries: 1 })),
-    days ? cached(env, `cal:td:auctioned:${days}`, 6 * 3600, () => upstream('treasurydirect', `${td}/auctioned?format=json&days=${days}`, { timeoutMs: 25000, retries: 1 })) : Promise.resolve({ value: [] }),
+    cached(env, 'cal:td:upcoming', 3 * 3600, () => upstream('treasurydirect', `${td}/upcoming?format=json`, { timeoutMs: 8000, retries: 0 })),
+    days ? cached(env, `cal:td:auctioned:${days}`, 6 * 3600, () => upstream('treasurydirect', `${td}/auctioned?format=json&days=${days}`, { timeoutMs: 10000, retries: 0 })) : Promise.resolve({ value: [] }),
   ]);
   const nn = (v) => (v === null || v === '' || v === undefined ? null : Number(v));
   const seen = new Set();
@@ -111,8 +119,8 @@ async function sourceFiscalData(env, from, to) {
   }
   const parts = await Promise.allSettled([
     ...slices.map(([a1, b1]) => cached(env, `cal:auctions:${a1}:${b1}`, b1 < today ? 24 * 3600 : 3 * 3600, () => upstream('treasury',
-      `${base}/auctions_query?filter=auction_date:gte:${a1},auction_date:lte:${b1}&sort=-auction_date&page%5Bsize%5D=200&fields=${fields}`, { timeoutMs: 30000, retries: 1 }))),
-    cached(env, 'cal:auctions:upcoming', 3 * 3600, () => upstream('treasury', `${base}/upcoming_auctions?sort=-record_date&page%5Bsize%5D=80`, { timeoutMs: 30000, retries: 1 })),
+      `${base}/auctions_query?filter=auction_date:gte:${a1},auction_date:lte:${b1}&sort=-auction_date&page%5Bsize%5D=200&fields=${fields}`, { timeoutMs: 8000, retries: 0 }))),
+    cached(env, 'cal:auctions:upcoming', 3 * 3600, () => upstream('treasury', `${base}/upcoming_auctions?sort=-record_date&page%5Bsize%5D=80`, { timeoutMs: 8000, retries: 0 })),
   ]);
   const failed = parts.filter((p) => p.status === 'rejected');
   if (failed.length === parts.length) throw failed[0].reason;
