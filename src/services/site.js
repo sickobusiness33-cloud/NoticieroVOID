@@ -24,9 +24,10 @@ export function robots(site) {
 async function storyRows(env, { sinceHours, limit }) {
   if (!env.DB) return [];
   const since = sinceHours ? new Date(Date.now() - sinceHours * 3600e3).toISOString() : '0';
-  const { results } = await env.DB.prepare(`SELECT a.id, a.title, a.lang, a.excerpt, s.created_at AS createdAt, s.paragraphs FROM stories s
+  const { results } = await env.DB.prepare(`SELECT a.id, a.title, a.lang, a.excerpt, a.categories, a.assets, s.created_at AS createdAt, s.paragraphs FROM stories s
     JOIN articles a ON a.id = s.id AND a.lang = s.lang WHERE s.status = 'ok' AND a.official = 0 AND s.created_at >= ? ORDER BY s.created_at DESC LIMIT ?`).bind(since, limit).all();
-  return results;
+  // Same rule as the page's robots tag: only on-topic (section) stories are listed.
+  return results.filter((r) => SECTIONS.some((s) => inSection(s, { categories: (r.categories || '').split(','), assets: (r.assets || '').split(',') })));
 }
 
 const indexablePaths = () => [
@@ -109,12 +110,12 @@ export async function resolvePage(url, env, site) {
       status: 200, lang: item.lang, type: 'article', image: item.image,
       title: `${clip(item.title, 90)} | ${SITE_NAME}`,
       description: clip(ok ? story.paragraphs[0] : item.excerpt || item.title, 160),
-      // Only pages with VOID's own report are offered for indexing; headline-only pages and
-      // mirrored official releases stay noindex (thin or duplicate of the source).
-      index: ok && !item.official,
+      // Only on-topic pages with VOID's own report are offered for indexing; headline-only pages,
+      // mirrored official releases and off-topic (general news) items stay noindex.
+      index: ok && !item.official && !!sec,
       published: ok ? story.generatedAt : null, modified: ok ? story.generatedAt : null,
       body: articleBody(item, story, related),
-      ld: [breadcrumbLd(site, crumbs), ...(ok && !item.official ? [newsArticleLd(site, { item, story, section: sec?.en })] : [])],
+      ld: [breadcrumbLd(site, crumbs), ...(ok && !item.official && sec ? [newsArticleLd(site, { item, story, section: sec?.en })] : [])],
     };
   }
 

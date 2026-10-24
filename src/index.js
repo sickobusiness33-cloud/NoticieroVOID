@@ -19,6 +19,7 @@ import { officialText } from './services/official.js';
 import { story, pregenerate } from './services/story.js';
 import { crawlFile, renderPage, siteUrl } from './services/site.js';
 import { impactFor } from '../public/js/shared/impact.js';
+import { SECTIONS, inSection } from '../public/js/shared/seo.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{2,60}$/;
@@ -421,7 +422,8 @@ export default {
       // so it never shares an invocation with the feed ingest. Newest items with a photo first.
       if (minute % 15 === 7 && env.DB) {
         try {
-          const recent = await news.recentArchived(env, { limit: 200, sinceHours: 24 });
+          // Only stories inside VOID's financial sections (never general/off-topic news).
+          const recent = (await news.recentArchived(env, { limit: 200, sinceHours: 24 })).filter((i) => SECTIONS.some((sec) => inSection(sec, i)));
           const ranked = [...recent.filter((i) => i.image), ...recent.filter((i) => !i.image)];
           log('info', 'cron_story_pregen', await pregenerate(env, ranked, 1));
         } catch (e) { log('error', 'cron_story_pregen_failed', { error: e.message }); }

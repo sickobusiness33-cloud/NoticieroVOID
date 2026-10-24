@@ -84,6 +84,13 @@ test('headline-only and official pages are noindex', async () => {
   assert.ok(!p.ld.some((x) => x['@type'] === 'NewsArticle'));
 });
 
+test('off-topic (general news) story pages are noindex even with a report', async () => {
+  const gen = { ...ITEM, categories: ['general'] };
+  const p = await page(articlePath(gen), fakeEnv({ item: gen }));
+  assert.equal(p.index, false);
+  assert.ok(!p.ld.some((x) => x['@type'] === 'NewsArticle'));
+});
+
 test('URL variants redirect to the canonical article URL; unknown ids are 404', async () => {
   assert.equal((await page(`/news/${ITEM.id}`)).redirect, SITE + articlePath(ITEM));
   assert.equal((await page(`/news/${ITEM.id}/wrong-slug`)).redirect, SITE + articlePath(ITEM));
