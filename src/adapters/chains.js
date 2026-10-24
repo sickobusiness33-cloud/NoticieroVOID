@@ -26,7 +26,7 @@ export function bs(chain, path) {
 }
 
 // ---------- Solana JSON-RPC ----------
-export async function solRpc(env, method, params) {
+export async function solRpc(env, method, params, attempt = 0) {
   const url = env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
   const body = await upstream('solana-rpc', url, {
     timeoutMs: 15000, retries: 1,
@@ -35,6 +35,11 @@ export async function solRpc(env, method, params) {
     if (!env.SOLANA_RPC_URL) throw Object.assign(new Error(`${e.message} — the public Solana RPC blocks this request. Configure SOLANA_RPC_URL (e.g. a free Helius endpoint) to enable Solana holders and wallets.`), { status: 503, code: 'solana_rpc_required' });
     throw e;
   });
+  // Helius sheds load on heavy index queries with "overloaded": retry briefly before failing.
+  if (body.error && /overloaded/i.test(body.error.message || '') && attempt < 2) {
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+    return solRpc(env, method, params, attempt + 1);
+  }
   if (body.error) {
     const hint = env.SOLANA_RPC_URL ? '' : ' (public RPC limits this call; set SOLANA_RPC_URL to a dedicated endpoint such as Helius)';
     throw Object.assign(new Error(`Solana RPC ${method}: ${body.error.message || body.error.code}${hint}`), { status: 502, provider: 'solana-rpc' });

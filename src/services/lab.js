@@ -221,7 +221,7 @@ export async function wallet(env, chain, address) {
     if (!isSolanaAddress(address)) throw bad('Invalid Solana address');
     const [bal, toks] = await Promise.all([
       solRpc(env, 'getBalance', [address]),
-      solRpc(env, 'getTokenAccountsByOwner', [address, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]),
+      solTokenAccounts(env, address),
     ]);
     const positions = (toks.value || []).map((a) => a.account.data.parsed.info).map((i) => ({ token: i.mint, amount: Number(i.tokenAmount.uiAmountString) })).filter((p) => p.amount > 0)
       .sort((a, b) => b.amount - a.amount).slice(0, 40);
@@ -229,7 +229,7 @@ export async function wallet(env, chain, address) {
     try { prices = await tokenPrices(env, 'solana', positions.slice(0, 25).map((p) => p.token)); } catch { /* optional */ }
     positions.forEach((p) => { const px = prices[p.token.toLowerCase()]; p.valueUsd = px ? px * p.amount : null; });
     positions.sort((a, b) => (b.valueUsd ?? -1) - (a.valueUsd ?? -1));
-    return { chain, address, native: { symbol: 'SOL', amount: bal.value / 1e9 }, positions, label: null, explorerUrl: `https://solscan.io/account/${address}`, source: 'Solana RPC', fetchedAt: new Date().toISOString() };
+    return { chain, address, native: { symbol: 'SOL', amount: bal.value / 1e9 }, positions, label: null, note: toks.truncated ? 'Large wallet: first 1,000 token accounts shown.' : null, explorerUrl: `https://solscan.io/account/${address}`, source: 'Solana RPC', fetchedAt: new Date().toISOString() };
   }
   const c = EVM_CHAINS[chain];
   if (!c) throw bad('Unsupported chain');
@@ -242,6 +242,17 @@ export async function wallet(env, chain, address) {
   }).filter((p) => p.amount > 0).sort((a, b) => (b.valueUsd ?? -1) - (a.valueUsd ?? -1)).slice(0, 60);
   return { chain, address, native: { symbol: c.native, amount: info.coin_balance ? Number(info.coin_balance) / 1e18 : null, priceUsd: num(info.exchange_rate) },
     positions, label: evmLabel(info), isContract: !!info.is_contract, explorerUrl: `${c.explorer}/address/${address}`, source: 'Blockscout', fetchedAt: new Date().toISOString() };
+}
+
+// Token accounts of a Solana wallet. Helius endpoints get the paginated V2 method (first
+// page of up to 1,000 accounts), which large wallets need; other RPCs use the standard call.
+async function solTokenAccounts(env, address) {
+  const program = { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' };
+  if (/helius/i.test(env.SOLANA_RPC_URL || '')) {
+    const r = await solRpc(env, 'getTokenAccountsByOwnerV2', [address, program, { encoding: 'jsonParsed', limit: 1000 }]);
+    return { value: Array.isArray(r.value) ? r.value : r.value?.accounts || [], truncated: !!r.paginationKey };
+  }
+  return solRpc(env, 'getTokenAccountsByOwner', [address, program, { encoding: 'jsonParsed' }]);
 }
 
 // Balance of one token over time, rebuilt from the wallet's own classified movements.
