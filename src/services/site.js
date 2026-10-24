@@ -80,7 +80,7 @@ function articleBody(item, story, related) {
   return `<nav class="crumbs"><a href="/">Front page</a>${sec ? ` › <a href="${sectionPath(sec.key)}">${esc(sec.en)}</a>` : ''}</nav>
 <article><h1>${esc(item.title)}</h1>${item.excerpt ? `<p>${esc(item.excerpt)}</p>` : ''}
 <p><b>${esc(item.source)}</b> · <time datetime="${esc(item.publishedAt)}">${esc(fmtDate(item.publishedAt, item.lang))}</time></p>
-${item.image ? `<figure><img src="${esc(item.image)}" alt="${esc(item.title)}" referrerpolicy="no-referrer" loading="lazy"><figcaption>Image: ${esc(item.source)}</figcaption></figure>` : ''}
+${item.image ? `<figure><img src="${esc(item.image)}" alt="${esc(item.title)}" referrerpolicy="no-referrer" fetchpriority="high"><figcaption>Image: ${esc(item.source)}</figcaption></figure>` : ''}
 ${ok ? `<section><h2>${item.lang === 'es' ? 'Informe VOID' : 'VOID Report'}${story.headline ? `: ${esc(story.headline)}` : ''}</h2>${story.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}
 <p><small>${item.lang === 'es' ? 'Redactado con IA por Noticiero VOID a partir de los hechos publicados por' : 'Written with AI by Noticiero VOID from facts reported by'} ${story.sources.map((s) => esc(s.source)).join(', ')}. <a href="/editorial-policy#ai">${item.lang === 'es' ? 'Cómo lo hacemos' : 'How we do it'}</a> · <time datetime="${esc(story.generatedAt)}">${esc(fmtDate(story.generatedAt, item.lang))}</time></small></p></section>` : ''}
 <p><a href="${esc(item.url)}" rel="noopener">${item.lang === 'es' ? 'Leer la noticia completa en' : 'Read the full story at'} ${esc(item.source)}</a></p></article>
@@ -175,7 +175,8 @@ export async function renderPage(request, env, shellResponse) {
     return { response: shellResponse, status: 200 };
   }
   if (page.redirect) return { redirect: redirect(page.redirect) };
-  const head = headTags({ site, path: url.pathname, title: page.title, description: page.description, index: page.index,
+  const preload = page.type === 'article' && page.image ? `<link rel="preload" as="image" href="${esc(page.image)}" referrerpolicy="no-referrer" fetchpriority="high">` : '';
+  const head = preload + headTags({ site, path: url.pathname, title: page.title, description: page.description, index: page.index,
     image: page.image, type: page.type, lang: page.lang, published: page.published, modified: page.modified,
     verification: { google: env.GOOGLE_SITE_VERIFICATION, bing: env.BING_SITE_VERIFICATION } }) + page.ld.map(ldScript).join('');
   const rewritten = new HTMLRewriter()

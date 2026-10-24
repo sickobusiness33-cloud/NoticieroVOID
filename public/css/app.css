@@ -228,7 +228,7 @@ label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; colo
 .art { min-width: 0; }
 .art-title { font: 800 clamp(28px, 4vw, 46px)/1.12 var(--serif); margin: 8px 0 12px; }
 .art-dek { font: 20px/1.5 var(--body-serif); color: var(--tx2); margin: 0 0 12px; }
-.art .pic img { aspect-ratio: auto; max-height: 520px; }
+.art .pic img { aspect-ratio: 16 / 9; max-height: 520px; object-fit: cover; }
 .art-pic { margin: 14px 0; }
 .art-cta { background: var(--s1); border: 1px solid var(--line); border-left: 3px solid var(--vio); border-radius: 8px; padding: 12px 14px; margin: 14px 0; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .art-cta p { margin: 0; font-family: var(--body-serif); }
@@ -416,6 +416,7 @@ label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; colo
 .art-actions { margin: 12px 0; }
 .art-also { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
 .art-official .art-body p { font: 17px/1.65 var(--body-serif, Georgia, serif); margin: 0 0 14px; color: var(--tx); }
+.art-story:has(.loading) { min-height: 220px; }
 .art-story { margin: 18px 0; padding: 16px 0 4px; border-top: 2px solid var(--tx); }
 .art-story-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 .art-story-title { font: 700 24px/1.25 var(--serif); margin: 4px 0 12px; }
