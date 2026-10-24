@@ -1,29 +1,43 @@
-// SPA shell: hash router, language switch, connection indicator, market strip, ads.
+// SPA shell: path router (real URLs, server-rendered first paint), language switch,
+// connection indicator, market strip, ads. Route modules load on demand.
 import { t, setLang, getLang } from './i18n.js';
 import { h, api, fmtUsd, fmtPct, signClass, fmtNum } from './ui.js';
 import { configureAds, adSlot, stickyAd } from './ads.js';
-import * as V from './views.js';
-import * as V2 from './views2.js';
-import * as P from './paper.js';
-import { memeTerminal } from './memeterm.js';
-import { quantLab } from './quantlab.js';
-import { calendarIntel } from './calendar.js';
 
+const lazy = (mod, name) => (ctx) => mod().then((m) => m[name](ctx));
+const paper = () => import('./paper.js'), views = () => import('./views.js'), views2 = () => import('./views2.js');
 const ROUTES = [
-  ['', 'nav_home', P.front], ['terminal', 'nav_terminal', V.terminal], ['macro', 'nav_macro', V.macro],
-  ['news', 'nav_news', V.newsFeed], ['analyst', 'nav_analyst', V.analyst], ['calendar', 'nav_calendar', calendarIntel],
-  ['liquidity', 'nav_liquidity', V2.liquidity], ['crypto-macro', 'nav_cryptomacro', V2.cryptoMacro],
-  ['memecoins', 'nav_meme', memeTerminal], ['lab', 'nav_lab', quantLab], ['saved', 'nav_saved', V.saved], ['status', 'nav_status', V.status],
-  ['article', 'nav_home', P.article, { hidden: true }],
+  ['', 'nav_home', lazy(paper, 'front')], ['terminal', 'nav_terminal', lazy(views, 'terminal')], ['macro', 'nav_macro', lazy(views, 'macro')],
+  ['news', 'nav_news', (ctx) => (/^[a-f0-9]{20}$/.test(ctx.params[0] || '') ? lazy(paper, 'article')(ctx) : lazy(views, 'newsFeed')(ctx))],
+  ['analyst', 'nav_analyst', lazy(views, 'analyst')], ['calendar', 'nav_calendar', lazy(() => import('./calendar.js'), 'calendarIntel')],
+  ['liquidity', 'nav_liquidity', lazy(views2, 'liquidity')], ['crypto-macro', 'nav_cryptomacro', lazy(views2, 'cryptoMacro')],
+  ['memecoins', 'nav_meme', lazy(() => import('./memeterm.js'), 'memeTerminal')], ['lab', 'nav_lab', lazy(() => import('./quantlab.js'), 'quantLab')],
+  ['saved', 'nav_saved', lazy(views, 'saved')], ['status', 'nav_status', lazy(views, 'status')],
+  ['section', 'nav_home', lazy(paper, 'section'), { hidden: true }],
+  ['about', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
+  ['editorial-policy', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
+  ['privacy', 'nav_home', lazy(() => import('./pages.js'), 'staticPage'), { hidden: true }],
 ];
 
 export const app = { config: null };
 const main = document.getElementById('app');
 
-function parseHash() {
-  const [path, query] = location.hash.replace(/^#\/?/, '').split('?');
-  const parts = path.split('/').filter(Boolean);
-  return { route: parts[0] || '', params: parts.slice(1), query: new URLSearchParams(query || '') };
+// Old #/ links (shared before real URLs existed) are moved to their path equivalent.
+function migrateHash() {
+  if (!location.hash.startsWith('#/')) return;
+  let [path, query] = location.hash.slice(1).split('?');
+  path = path.replace(/^\/article\//, '/news/');
+  history.replaceState(null, '', path + (query ? `?${query}` : ''));
+}
+
+function parseLoc() {
+  const parts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  return { route: parts[0] || '', params: parts.slice(1), query: new URLSearchParams(location.search) };
+}
+
+export function navigate(path) {
+  history.pushState(null, '', path);
+  render();
 }
 
 function renderChrome() {
@@ -31,8 +45,12 @@ function renderChrome() {
   document.getElementById('tagline').textContent = t('tagline');
   document.getElementById('footTag').textContent = t('sub');
   document.getElementById('disclaimer').textContent = t('disclaimer');
-  const { route } = parseHash();
-  document.getElementById('nav').replaceChildren(...ROUTES.filter((x) => !x[3]?.hidden).map(([r, key]) => h('a', { href: `#/${r}`, class: r === route ? 'on' : '', 'aria-current': r === route ? 'page' : null }, t(key))));
+  const { route } = parseLoc();
+  document.getElementById('nav').replaceChildren(...ROUTES.filter((x) => !x[3]?.hidden).map(([r, key]) => h('a', { href: `/${r}`, class: r === route ? 'on' : '', 'aria-current': r === route ? 'page' : null }, t(key))));
+  const links = [['/section/macro', 'Economy', 'Economía'], ['/section/markets', 'Markets', 'Mercados'], ['/section/crypto', 'Crypto', 'Cripto'],
+    ['/section/commodities', 'Commodities', 'Materias primas'], ['/section/fx', 'Currencies', 'Divisas'], ['/section/world', 'Geopolitics', 'Geopolítica'],
+    ['/about', 'About', 'Sobre nosotros'], ['/editorial-policy', 'Editorial policy', 'Política editorial'], ['/privacy', 'Privacy', 'Privacidad'], ['/rss.xml', 'RSS', 'RSS']];
+  document.getElementById('footLinks').replaceChildren(...links.flatMap(([href, en, es], i) => [i ? ' · ' : '', h('a', { href }, getLang() === 'es' ? es : en)]));
   document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === getLang()));
 }
 
@@ -40,18 +58,33 @@ let renderSeq = 0;
 async function render() {
   const seq = ++renderSeq;
   renderChrome();
-  const { route, params, query } = parseHash();
-  const def = ROUTES.find(([r]) => r === route) || ROUTES[0];
-  document.title = `${t(def[1])} · Noticiero VOID`;
-  main.replaceChildren();
+  const { route, params, query } = parseLoc();
+  const def = ROUTES.find(([r]) => r === route);
+  document.title = `${def ? t(def[1]) : '404'} · Noticiero VOID`;
+  const first = main.querySelector('.ssr');
   try {
-    const node = await def[2]({ params, query, app });
+    const node = def ? await def[2]({ params, query, app }) : h('div', { class: 'error-box' }, h('h1', null, t('not_found')), h('a', { href: '/' }, t('nav_home')));
     if (seq === renderSeq) main.replaceChildren(node);
   } catch (e) {
     if (seq === renderSeq) main.replaceChildren(h('div', { class: 'error-box' }, e.message));
   }
   document.getElementById('nav').classList.remove('open');
-  window.scrollTo(0, 0);
+  if (!first) window.scrollTo(0, 0);
+}
+
+// Same-origin page links are handled in place (no full reload); API links, new tabs,
+// modified clicks and downloads keep the browser default.
+function interceptLinks() {
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target || a.hasAttribute('download')) return;
+    const url = new URL(a.href, location.href);
+    if (url.origin !== location.origin || url.pathname.startsWith('/api/') || /\.[a-z0-9]+$/i.test(url.pathname)) return;
+    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+    e.preventDefault();
+    navigate(url.pathname + url.search);
+  });
+  window.addEventListener('popstate', render);
 }
 
 async function ticker() {
@@ -92,15 +125,16 @@ async function boot() {
     if (e.key === '/') { const s = document.querySelector('input[type=search]'); if (s) { s.focus(); e.preventDefault(); } return; }
     if (g) {
       const map = { h: '', t: 'terminal', m: 'macro', n: 'news', a: 'analyst', c: 'calendar', l: 'liquidity', k: 'crypto-macro', s: 'memecoins', q: 'lab' };
-      if (e.key in map) location.hash = `#/${map[e.key]}`;
+      if (e.key in map) navigate(`/${map[e.key]}`);
       g = false; return;
     }
     if (e.key === 'g') { g = true; setTimeout(() => { g = false; }, 1200); }
   });
-  window.addEventListener('hashchange', render);
+  interceptLinks();
   window.addEventListener('online', ticker);
   window.addEventListener('offline', () => { const c = document.getElementById('conn'); c.className = 'conn bad'; c.querySelector('span').textContent = 'OFFLINE'; });
   setLang(getLang());
+  migrateHash();
   render();
   ticker();
   // CoinGecko data are cached ~2 min server-side; polling faster would only re-read the cache.

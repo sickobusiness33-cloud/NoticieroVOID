@@ -40,7 +40,11 @@ and pushes on its own. Pushing to `main` deploys to production automatically
   probabilities without a calibrated model. D1 schema changes go in `migrations/` and must be applied remotely.
 
 ## Layout
-- `public/` SPA (no build step): `js/app.js` router, `js/views.js` + `js/views2.js` pages,
+- `public/` SPA (no build step): `js/app.js` path router (real URLs, no `#/`; route modules lazy-load), `js/views.js` + `js/views2.js` pages,
   `js/charts.js`, `css/app.css` design tokens.
+- SEO: `src/services/site.js` server-renders every page into the SPA shell (title, canonical, robots,
+  JSON-LD, crawlable body) and serves robots.txt, sitemaps, news sitemap and RSS. Canonical URLs and
+  metadata live in `public/js/shared/seo.js` (tests: `test/seo.test.js`). Article URLs are
+  `/news/<id>/<slug>`; only pages with an `ok` VOID Report are indexable and listed in sitemaps.
 - `src/` Worker: `index.js` routes, `adapters/` providers, `services/` logic, `lib/core.js` infra.
 - See README.md for API, configuration and deployment.

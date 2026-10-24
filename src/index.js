@@ -16,7 +16,8 @@ import * as lab from './services/lab.js';
 import * as alerts from './services/alerts.js';
 import * as cal2 from './services/calendar2.js';
 import { officialText } from './services/official.js';
-import { story } from './services/story.js';
+import { story, pregenerate } from './services/story.js';
+import { crawlFile, renderPage, siteUrl } from './services/site.js';
 import { impactFor } from '../public/js/shared/impact.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -319,7 +320,8 @@ const routes = {
 
   'POST /api/admin/ingest': async (req, env) => {
     requireAdmin(req, env);
-    return json(await ingest(env));
+    const { items, ...r } = await ingest(env);
+    return json(r);
   },
 };
 
@@ -346,32 +348,45 @@ async function generateBriefing(env, lang, question = null) {
 async function ingest(env) {
   const { items, feedStatus } = await news.collect(env);
   const stored = await news.archive(env, items);
-  return { seen: items.length, ...stored, feeds: feedStatus };
+  return { seen: items.length, ...stored, feeds: feedStatus, items };
 }
 
-async function serveAsset(request, env) {
-  const res = await env.ASSETS.fetch(request);
-  const ct = res.headers.get('content-type') || '';
-  const headers = new Headers(res.headers);
+function secure(headers, html) {
   headers.set('x-content-type-options', 'nosniff');
   headers.set('referrer-policy', 'strict-origin-when-cross-origin');
-  if (!ct.includes('text/html')) return new Response(res.body, { status: res.status, headers });
-  headers.set('content-security-policy', CSP);
-  headers.set('x-frame-options', 'DENY');
+  if (html) { headers.set('content-security-policy', CSP); headers.set('x-frame-options', 'DENY'); }
+  return headers;
+}
+
+// Every non-API, non-static URL: server-rendered page in the SPA shell (or a crawl file).
+// Static files (js/css/images) are served by the assets layer before the Worker runs.
+async function servePage(request, env) {
+  const url = new URL(request.url);
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers: { allow: 'GET, HEAD' } });
+  if (url.pathname === '/index.html') return Response.redirect(`${siteUrl(env, url)}/`, 301);
+  const file = await crawlFile(url.pathname, env, siteUrl(env, url));
+  if (file) { secure(file.headers, false); return file; }
+  const shell = await env.ASSETS.fetch(new Request(new URL('/', url), { headers: request.headers }));
+  const r = await renderPage(request, env, new Response(shell.body, shell));
+  if (r.redirect) return r.redirect;
+  const headers = secure(new Headers(r.response.headers), true);
+  headers.set('content-type', 'text/html; charset=utf-8');
+  headers.set('cache-control', 'public, max-age=0, must-revalidate');
+  headers.delete('etag');
+  let res = new Response(r.response.body, { status: r.status, headers });
   // Coinzilla site verification <meta> is injected server-side from configuration.
-  let rewritten = new Response(res.body, { status: res.status, headers });
   if (env.COINZILLA_VERIFICATION) {
-    rewritten = new HTMLRewriter().on('head', {
+    res = new HTMLRewriter().on('head', {
       element(el) { el.append(`<meta name="coinzilla" content="${String(env.COINZILLA_VERIFICATION).replace(/[^a-zA-Z0-9_-]/g, '')}">`, { html: true }); },
-    }).transform(rewritten);
+    }).transform(res);
   }
-  return rewritten;
+  return res;
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/')) return serveAsset(request, env);
+    if (!url.pathname.startsWith('/api/')) return servePage(request, env);
     const handler = routes[`${request.method} ${url.pathname}`];
     if (!handler) return apiError(404, 'not_found', `No route ${request.method} ${url.pathname}`);
     if (!(await rateLimit(env, request, 'api', 240, 60))) return apiError(429, 'rate_limited', 'Too many requests');
@@ -401,6 +416,8 @@ export default {
     try {
       const r = await ingest(env);
       log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored });
+      // VOID Reports for the top new stories, so indexable pages exist before readers arrive.
+      ctx.waitUntil(pregenerate(env, r.items).then((x) => log('info', 'cron_story_pregen', x)).catch((e) => log('error', 'cron_story_pregen_failed', { error: e.message })));
     } catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
     // Warm the FRED cache (stored in KV when bound) so user requests rarely hit FRED directly.
     if (event.cron === '5 */6 * * *') {

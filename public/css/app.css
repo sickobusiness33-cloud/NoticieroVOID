@@ -422,3 +422,19 @@ label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; colo
 .art-story .art-body p { font: 17px/1.65 var(--body-serif, Georgia, serif); margin: 0 0 14px; color: var(--tx); }
 .art-source { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--tx2); }
 .art-source p { margin: 0; }
+
+/* Server-rendered first paint (replaced by the SPA once it boots) and static pages. */
+.ssr { max-width: 860px; margin: 0 auto; padding: 18px 0; line-height: 1.6; }
+.ssr h1 { font: 700 30px/1.2 var(--serif, Georgia, serif); margin: 8px 0 12px; }
+.ssr h2 { font-size: 18px; margin: 22px 0 8px; }
+.ssr-list { padding-left: 18px; }
+.ssr-list li { margin: 6px 0; }
+.ssr img { max-width: 100%; height: auto; }
+.ssr-foot, .foot-links { margin-top: 18px; color: var(--tx2); }
+.foot-links a { color: var(--tx2); }
+.static-page { max-width: 760px; margin: 0 auto; padding: 12px 0 30px; }
+.static-page h1 { font: 700 32px/1.2 var(--serif, Georgia, serif); }
+.static-page p { line-height: 1.7; }
+.np-sec-title a { color: inherit; text-decoration: none; }
+/* Reserve the viewport for page content so the footer does not jump as data loads (CLS). */
+main#app { min-height: 100vh; }

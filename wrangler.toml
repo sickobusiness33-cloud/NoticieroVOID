@@ -7,7 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./public"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
+# Unknown paths reach the Worker, which renders the page (or a real 404) server-side.
+not_found_handling = "none"
 run_worker_first = ["/api/*", "/", "/index.html"]
 
 [observability]
@@ -21,6 +22,11 @@ crons = ["* * * * *", "5 */6 * * *"]
 [vars]
 AI_MODEL = "claude-opus-5-5"
 AI_EFFORT = "medium"
+# Canonical origin for URLs, sitemaps and structured data (change when a custom domain is added).
+SITE_URL = "https://noticiero-void.tureganovictor79.workers.dev"
+# Search engine ownership verification tokens (the content="" value of their meta tag).
+GOOGLE_SITE_VERIFICATION = ""
+BING_SITE_VERIFICATION = ""
 # Coinzilla: paste your zone IDs (the part after "C-") and the site-verification code.
 COINZILLA_ZONE_LEADERBOARD = ""
 COINZILLA_ZONE_RECTANGLE = ""

@@ -10,6 +10,9 @@ import { log } from '../lib/core.js';
 export const STORY_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
 // ~90 neurons per story with this model → 60/day stays well under the 10,000 free neurons.
 export const DAILY_CAP = 60;
+// Of those, the cron may pre-write at most this many per day for the top stories, so search
+// engines find finished pages; the rest stays available for readers' on-demand requests.
+export const CRON_DAILY_CAP = 40;
 
 const STOP = new Set('the a an of to in on for and or by with from at as is are was were be has have had its it this that after amid over into than more new says said de la el los las del en y o por con para un una que se su sus al lo como más tras ante sobre es son fue han ha'.split(' '));
 
@@ -103,10 +106,31 @@ export async function story(env, item, allItems, lang) {
   return inflight.get(key);
 }
 
+// Read-only lookup (server-rendered pages never trigger generation).
+export async function getStory(env, id, lang) {
+  if (!env.DB) return null;
+  const row = await stored(env, id, lang);
+  return row ? shape(row) : null;
+}
+
+const usedToday = async (env) => (await env.DB.prepare('SELECT COUNT(*) AS n FROM stories WHERE created_at >= ?').bind(new Date().toISOString().slice(0, 10)).first()).n;
+
+// Cron: write stories for the highest-ranked recent items that have none, in the item's language.
+export async function pregenerate(env, items, max = 2) {
+  if (!env.AI || !env.DB) return { written: 0, skipped: 'AI or DB binding missing' };
+  if ((await usedToday(env)) >= CRON_DAILY_CAP) return { written: 0, skipped: 'cron daily cap reached' };
+  const cand = items.filter((i) => !i.official && i.excerpt && Date.now() - Date.parse(i.publishedAt) < 24 * 3600e3).slice(0, 40);
+  if (!cand.length) return { written: 0 };
+  const have = new Set((await env.DB.prepare(`SELECT id FROM stories WHERE id IN (${cand.map(() => '?').join(',')})`).bind(...cand.map((i) => i.id)).all()).results.map((r) => r.id));
+  let written = 0;
+  for (const it of cand.filter((i) => !have.has(i.id)).slice(0, max)) {
+    try { await story(env, it, items, it.lang === 'es' ? 'es' : 'en'); written++; } catch (e) { log('warn', 'story_pregen_failed', { id: it.id, error: e.message }); break; }
+  }
+  return { written };
+}
+
 async function generate(env, item, allItems, lang) {
-  const today = new Date().toISOString().slice(0, 10);
-  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM stories WHERE created_at >= ?').bind(today).first();
-  if (n >= DAILY_CAP) throw fail(429, 'daily_quota', 'The free daily AI quota is used up; new stories resume after 00:00 UTC.');
+  if ((await usedToday(env)) >= DAILY_CAP) throw fail(429, 'daily_quota', 'The free daily AI quota is used up; new stories resume after 00:00 UTC.');
 
   const others = sameStory(item, allItems);
   const { system, user } = prompt(item, others, lang);

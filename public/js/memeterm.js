@@ -1,6 +1,7 @@
 // VOID MEME TERMINAL — live Solana memecoin scanner.
 // Data refresh is real polling (every 60 s) of /api/meme/scanner; nothing on this page is
 // simulated. Alerts fire only when a signal appears that was not in the previous poll.
+import { articlePath } from './shared/seo.js';
 import { t, tr, getLang } from './i18n.js';
 import { h, api, ago, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
@@ -167,7 +168,7 @@ export async function memeTerminal() {
 
   const renderNews = () => {
     const n = state.data.news;
-    newsBox.replaceChildren(...(n.length ? n.slice(0, 12).map((it) => h('a', { class: 'mt-newsitem', href: `#/article/${it.id}` },
+    newsBox.replaceChildren(...(n.length ? n.slice(0, 12).map((it) => h('a', { class: 'mt-newsitem', href: articlePath(it) },
       it.image ? h('img', { src: it.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
       h('div', null, h('b', null, it.title), h('div', { class: 'small muted' }, `${it.source} · ${ago(it.publishedAt)}`))))
       : [h('p', { class: 'muted small' }, tr('No memecoin-related headlines in the current window.', 'No hay titulares sobre memecoins en este momento.'))]));

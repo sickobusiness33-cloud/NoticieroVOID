@@ -1,6 +1,7 @@
 // VOID Intelligence Calendar — year (default) / month / week / day views.
 // Events: /api/cal/range (official calendars, BEA, Treasury, rules, optional FRED/Finnhub).
 // Impact: /api/cal/impact (transmission scenarios + historical comparables, no probabilities).
+import { articlePath } from './shared/seo.js';
 import { tr, getLang } from './i18n.js';
 import { h, api, store, persist, fmtNum } from './ui.js';
 import { adSlot } from './ads.js';
@@ -200,7 +201,7 @@ export async function calendarIntel() {
     box.replaceChildren(h('div', { class: 'loading' }, h('span', { class: 'spin' }), '…'));
     try {
       const d = await api(`/api/cal/news?date=${date}`);
-      box.replaceChildren(d.items.length ? h('ul', { class: 'vc-newslist' }, d.items.slice(0, 15).map((n) => h('li', null, h('a', { href: n.id ? `#/article/${n.id}` : n.url, target: n.id ? null : '_blank', rel: 'noopener' }, n.title), h('span', { class: 'small muted' }, ` · ${n.source}`))))
+      box.replaceChildren(d.items.length ? h('ul', { class: 'vc-newslist' }, d.items.slice(0, 15).map((n) => h('li', null, h('a', { href: n.id ? articlePath(n) : n.url, target: n.id ? null : '_blank', rel: 'noopener' }, n.title), h('span', { class: 'small muted' }, ` · ${n.source}`))))
         : h('p', { class: 'small muted' }, date > todayIso() ? tr('Future date: no news yet.', 'Fecha futura: aún no hay noticias.') : tr('No archived headlines for this date (the archive grows from deployment onwards).', 'No hay titulares archivados para esta fecha (el archivo crece desde el despliegue).')));
     } catch (e) { box.replaceChildren(h('div', { class: 'error-box' }, e.message)); }
   }

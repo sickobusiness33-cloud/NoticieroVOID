@@ -175,3 +175,16 @@ The Content-Security-Policy already allows `coinzillatag.com`, `*.coinzilla.com`
 **Integridad de datos:** no se inventan datos, previsiones de consenso ni citas. Cada widget muestra fuente, unidad, estado y última actualización. Las noticias muestran solo titular, extracto breve y enlace al medio original.
 
 *Solo información e investigación. No es asesoramiento de inversión.*
+
+## SEO, indexing and distribution
+
+- Real URLs (`/`, `/news/<id>/<slug>`, `/section/<key>`, `/macro/<id>`, `/about`, `/editorial-policy`, `/privacy`, tool pages).
+  The Worker renders each page server-side (title, description, canonical, robots, Open Graph, JSON-LD and a
+  crawlable HTML body) into the SPA shell; unknown URLs return a real 404. Old `#/` links are migrated client-side.
+- Crawl files: `/robots.txt`, `/sitemap.xml` (index → `/sitemaps/pages.xml`, `/sitemaps/articles.xml`),
+  `/news-sitemap.xml` (Google News, last 48 h) and `/rss.xml`, all generated from D1.
+- Indexing policy: story pages are `index` only when they carry an original VOID Report; headline-only pages and
+  mirrored official releases are `noindex, follow`. Filtered URLs (`?category=…`) canonicalise to the base page.
+- The cron pre-writes VOID Reports for the top new stories (max 40/day, inside the Workers AI free tier).
+- Configuration (`wrangler.toml` `[vars]`): `SITE_URL` (canonical origin), `GOOGLE_SITE_VERIFICATION`,
+  `BING_SITE_VERIFICATION` (the `content` value of each engine's verification meta tag).

@@ -7,15 +7,8 @@ import { t, tr, getLang } from './i18n.js';
 import { h, api, async, metaLine, statusBadge, fmtNum, fmtPct, fmtTime, ago, signClass, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
 import { UNIVERSE } from './shared/impact.js';
+import { SECTIONS, inSection, articlePath, sectionPath } from './shared/seo.js';
 
-const SECTIONS = [
-  { key: 'macro', en: 'Economy & Central Banks', es: 'Economía y bancos centrales', cats: ['central-banks', 'inflation', 'labor', 'growth'] },
-  { key: 'markets', en: 'Markets', es: 'Mercados', cats: ['rates-bonds', 'markets'], notCrypto: true },
-  { key: 'crypto', en: 'Crypto', es: 'Cripto', cats: ['etf-flows', 'regulation', 'defi', 'stablecoins', 'memecoins'], assets: ['BTC', 'ETH', 'SOL', 'XRP'] },
-  { key: 'commodities', en: 'Commodities', es: 'Materias primas', cats: ['commodities'] },
-  { key: 'fx', en: 'Currencies', es: 'Divisas', cats: ['fx-dollar'] },
-  { key: 'world', en: 'Geopolitics', es: 'Geopolítica', cats: ['geopolitics'] },
-];
 const CAT_LABEL = {
   'central-banks': ['Central banks', 'Bancos centrales'], inflation: ['Inflation', 'Inflación'], labor: ['Jobs', 'Empleo'], growth: ['Growth', 'Crecimiento'],
   'rates-bonds': ['Bonds', 'Bonos'], 'fx-dollar': ['Currencies', 'Divisas'], geopolitics: ['Geopolitics', 'Geopolítica'], regulation: ['Regulation', 'Regulación'],
@@ -23,13 +16,14 @@ const CAT_LABEL = {
   commodities: ['Commodities', 'Materias primas'], markets: ['Markets', 'Mercados'], general: ['News', 'Noticias'],
 };
 const kicker = (it) => tr(...(CAT_LABEL[it.categories?.find((c) => c !== 'general') || 'general'] || CAT_LABEL.general));
-const href = (it) => `#/article/${it.id}`;
+const href = (it) => articlePath(it);
 
 // Publisher thumbnail, or original VOID artwork when the feed carries no image.
-function photo(it, cls = '') {
+// The lead image is the page's largest paint: load it eagerly at high priority.
+function photo(it, cls = '', eager = false) {
   const art = h('div', { class: `ph ph-${(it.categories?.[0] || 'general')} ${cls}`, 'aria-hidden': 'true' }, h('span', null, kicker(it)));
   if (!it.image) return art;
-  const img = h('img', { src: it.image, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', class: cls });
+  const img = h('img', { src: it.image, alt: cls === 'art-pic' ? it.title : '', loading: eager ? 'eager' : 'lazy', fetchpriority: eager ? 'high' : null, decoding: 'async', referrerpolicy: 'no-referrer', class: cls });
   img.addEventListener('error', () => img.replaceWith(art));
   return h('figure', { class: `pic ${cls}` }, img, h('figcaption', null, `${tr('Image', 'Imagen')}: ${it.source}`));
 }
@@ -44,7 +38,7 @@ function byline(it) {
 function card(it, size = 'm') {
   // Small/medium cards without a photo are text-only (like a newspaper brief) instead of
   // repeating placeholder artwork; large slots always get a visual.
-  const media = it.image || size === 'xl' || size === 'l' ? h('a', { href: href(it), class: 'np-link', 'aria-label': it.title }, photo(it)) : null;
+  const media = it.image || size === 'xl' || size === 'l' ? h('a', { href: href(it), class: 'np-link', 'aria-label': it.title }, photo(it, '', size === 'xl')) : null;
   return h('article', { class: `np-card np-${size}${media ? '' : ' np-text'}` },
     media,
     h('div', { class: 'np-body' },
@@ -69,7 +63,7 @@ export async function front() {
       h('span', null, lang === 'es' ? 'Edición en español' : 'English edition'), h('span', null, t('tagline'))),
     h('h1', { class: 'mh-title' }, 'Noticiero VOID'),
     h('nav', { class: 'mh-sections' }, SECTIONS.map((s) => h('a', { href: `#sec-${s.key}`, onclick: (e) => { e.preventDefault(); root.querySelector(`#sec-${s.key}`)?.scrollIntoView({ behavior: 'smooth' }); } }, tr(s.en, s.es))),
-      h('a', { href: '#/news' }, tr('All news', 'Todas las noticias')))));
+      h('a', { href: '/news' }, tr('All news', 'Todas las noticias')))));
   const body = h('div');
   root.append(body);
   async(body, async () => {
@@ -96,14 +90,13 @@ export async function front() {
     const breaking = items.filter((i) => i.breaking).slice(0, 6);
 
     const sections = SECTIONS.map((s) => {
-      const pred = (it) => it.categories.some((c) => s.cats.includes(c)) || (s.assets && it.assets.some((a) => s.assets.includes(a)))
-        ? !(s.notCrypto && it.assets.some((a) => ['BTC', 'ETH', 'SOL', 'XRP'].includes(a))) : false;
+      const pred = (it) => inSection(s, it);
       const main = take(items, 1, (it) => pred(it) && withImg(it));
       const rest = take(items, 4, pred);
       const list = [...main, ...rest];
       if (!list.length) return null;
       return h('section', { class: 'np-section', id: `sec-${s.key}` },
-        h('h2', { class: 'np-sec-title' }, h('span', null, tr(s.en, s.es))),
+        h('h2', { class: 'np-sec-title' }, h('a', { href: sectionPath(s.key) }, h('span', null, tr(s.en, s.es)))),
         h('div', { class: 'np-sec-grid' }, card(list[0], 'l'), h('div', { class: 'np-sec-side' }, list.slice(1).map((i) => card(i, 's')))));
     }).filter(Boolean);
     const remaining = items.filter((i) => !used.has(i.id));
@@ -121,6 +114,27 @@ export async function front() {
       h('section', { class: 'np-section' }, h('h2', { class: 'np-sec-title' }, h('span', null, tr('More news', 'Más noticias'))), h('div', { class: 'np-grid' }, more)),
       metaLine({ ...byRel.meta, note: tr(`${items.length} stories from ${byRel.feeds.filter((f) => f.ok).length} sources. Headlines and short excerpts link to the original publishers.`, `${items.length} noticias de ${byRel.feeds.filter((f) => f.ok).length} fuentes. Titulares y extractos breves con enlace al medio original.`) }),
     ];
+  });
+  return root;
+}
+
+// ================= SECTION PAGE =================
+export async function section({ params }) {
+  const s = SECTIONS.find((x) => x.key === params[0]);
+  if (!s) return h('div', { class: 'error-box' }, h('h1', null, t('not_found')), h('a', { href: '/' }, tr('Front page', 'Portada')));
+  document.title = `${tr(s.en, s.es)} · Noticiero VOID`;
+  const root = h('div', { class: 'paper' });
+  root.append(h('nav', { class: 'crumbs small' }, h('a', { href: '/' }, tr('Front page', 'Portada'))),
+    h('header', { class: 'masthead' }, h('h1', { class: 'mh-title' }, tr(s.en, s.es)), h('p', { class: 'muted' }, tr(...s.desc))));
+  const body = h('div');
+  root.append(body);
+  async(body, async () => {
+    const d = await api(`/api/news?lang=${getLang()}&limit=200`);
+    const items = d.items.filter((it) => inSection(s, it));
+    if (!items.length) return h('div', { class: 'notice' }, t('no_data'));
+    const cards = items.map((i, k) => card(i, k === 0 ? 'xl' : 'm'));
+    for (let k = 7; k < cards.length; k += 8) cards.splice(k, 0, h('div', { class: 'np-ad-cell' }, adSlot('rectangle')));
+    return [h('div', { class: 'np-grid' }, cards), metaLine(d.meta)];
   });
   return root;
 }
@@ -185,7 +199,7 @@ export async function article({ params }) {
     const scen = imp.scenarios;
 
     return [
-      h('nav', { class: 'crumbs small' }, h('a', { href: '#/' }, tr('Front page', 'Portada')), ' › ', kicker(it)),
+      h('nav', { class: 'crumbs small' }, h('a', { href: '/' }, tr('Front page', 'Portada')), ' › ', kicker(it)),
       h('div', { class: 'art-grid' },
         h('article', { class: 'art' },
           h('span', { class: 'np-kicker' }, kicker(it)),
@@ -193,7 +207,7 @@ export async function article({ params }) {
           it.excerpt ? h('p', { class: 'art-dek' }, it.excerpt) : null,
           h('div', { class: 'np-by' }, h('b', null, it.source), h('span', null, fmtTime(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase()), it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null),
           adSlot('leaderboard'),
-          photo(it, 'art-pic'),
+          photo(it, 'art-pic', true),
           h('div', { class: 'controls art-actions' }, saveBtn, aiBtn, h('button', { class: 'btn', onclick: (e) => { navigator.clipboard?.writeText(location.href); e.currentTarget.textContent = tr('Link copied', 'Enlace copiado'); } }, tr('Copy link', 'Copiar enlace'))),
           it.official ? officialBox : storyBox,
           it.alsoReportedBy?.length ? h('div', { class: 'art-also' }, h('b', { class: 'small' }, `${tr('Also covered by', 'También lo cubren')}: `),

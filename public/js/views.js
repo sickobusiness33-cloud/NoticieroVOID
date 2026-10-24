@@ -1,4 +1,5 @@
 // Views: newsroom, command center, macro, intel feed, AI analyst, calendar, saved, status.
+import { articlePath } from './shared/seo.js';
 import { t, tr, getLang } from './i18n.js';
 import { h, api, async, panel, metaLine, statusBadge, fmtNum, fmtUsd, fmtPct, fmtCompact, fmtTime, ago, signClass, table, segmented, store, persist } from './ui.js';
 import { lineChart, sliceRange, bars } from './charts.js';
@@ -27,9 +28,9 @@ function storyNode(it, { excerpt = true, ai = true } = {}) {
   return h('article', { class: 'story' },
     h('div', { class: 'by' }, it.breaking ? h('span', { class: 'tag hot' }, t('breaking')) : null, it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null,
       h('b', null, it.source), h('span', { title: it.publishedAt }, ago(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase())),
-    h('h3', null, h('a', { href: it.id ? `#/article/${it.id}` : it.url }, it.title)),
+    h('h3', null, h('a', { href: it.id ? articlePath(it) : it.url }, it.title)),
     excerpt && it.excerpt ? h('p', null, it.excerpt) : null,
-    h('div', null, it.categories.filter((c) => c !== 'general').slice(0, 3).map((c) => h('a', { class: 'tag', href: `#/news?category=${c}` }, catName(c))), it.assets.slice(0, 4).map((a) => h('span', { class: 'tag vio' }, a))),
+    h('div', null, it.categories.filter((c) => c !== 'general').slice(0, 3).map((c) => h('a', { class: 'tag', href: `/news?category=${c}` }, catName(c))), it.assets.slice(0, 4).map((a) => h('span', { class: 'tag vio' }, a))),
     it.alsoReportedBy?.length ? h('div', { class: 'by' }, `${t('also')}: `, it.alsoReportedBy.slice(0, 4).map((r) => h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.source))) : null,
     h('div', { class: 'story-actions' }, h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin-left:0' }, `${t('read_at')} ${it.source} ↗`), saveBtn, aiBtn),
     box);
@@ -67,7 +68,7 @@ export async function home() {
     h('div', { class: 'grid g-main', style: 'margin-top:14px' },
       panel(t('latest_news'), latestBox),
       h('div', { class: 'grid' }, panel(t('macro_snapshot'), macroBox), adSlot('rectangle'), panel(tr('Explore the terminal', 'Explora la terminal'), h('div', { class: 'grid' },
-        ...[['terminal', 'nav_terminal'], ['analyst', 'nav_analyst'], ['liquidity', 'nav_liquidity'], ['memecoins', 'nav_meme'], ['lab', 'nav_lab'], ['calendar', 'nav_calendar']].map(([r, k]) => h('a', { class: 'card', href: `#/${r}` }, h('b', null, t(k)), ' →')))))),
+        ...[['terminal', 'nav_terminal'], ['analyst', 'nav_analyst'], ['liquidity', 'nav_liquidity'], ['memecoins', 'nav_meme'], ['lab', 'nav_lab'], ['calendar', 'nav_calendar']].map(([r, k]) => h('a', { class: 'card', href: `/${r}` }, h('b', null, t(k)), ' →')))))),
   );
   async(heroBox, async () => {
     const d = await api(`/api/news?lang=${lang}&limit=60`);
@@ -99,7 +100,7 @@ export async function home() {
   async(macroBox, async () => {
     const d = await api(`/api/markets/overview?lang=${lang}`);
     const pick = d.tradfi.filter((x) => x.latest).slice(0, 8);
-    return [h('div', { class: 'grid g2' }, pick.map((x) => h('a', { class: 'kpi', href: `#/macro/${x.id}` },
+    return [h('div', { class: 'grid g2' }, pick.map((x) => h('a', { class: 'kpi', href: `/macro/${x.id}` },
       h('span', { class: 'k' }, x.name), h('span', { class: 'v' }, fmtNum(x.latest.value, 2)), h('span', { class: 'd muted' }, `${x.unit} · ${x.latest.date}`)))),
     h('div', { class: 'meta' }, statusBadge('delayed'), 'FRED · ', tr('end-of-day values, not real-time', 'valores de cierre, no en tiempo real'))];
   });
@@ -155,7 +156,7 @@ export async function terminal() {
   async(tradBox, async () => {
     const d = await load();
     return table([tr('Indicator', 'Indicador'), t('latest'), t('change'), t('observed'), ''], d.tradfi.map((x) => x.latest
-      ? [h('a', { href: `#/macro/${x.id}` }, x.name), h('span', { class: 'num' }, `${fmtNum(x.latest.value, 2)} ${x.unit === '%' ? '%' : ''}`), h('span', { class: `num ${signClass(x.change)}` }, fmtNum(x.change, 2)), h('span', { class: 'num small' }, x.latest.date), statusBadge(x.meta.status)]
+      ? [h('a', { href: `/macro/${x.id}` }, x.name), h('span', { class: 'num' }, `${fmtNum(x.latest.value, 2)} ${x.unit === '%' ? '%' : ''}`), h('span', { class: `num ${signClass(x.change)}` }, fmtNum(x.change, 2)), h('span', { class: 'num small' }, x.latest.date), statusBadge(x.meta.status)]
       : [x.id, '—', '—', '—', statusBadge('unavailable')]));
   });
   let range = '1y';
@@ -214,7 +215,7 @@ export async function macro({ params }) {
     return GROUPS.map(([g, en, es]) => {
       const list = indicators.filter((i) => i.group === g || (!i.group && false));
       if (!list.length) return null;
-      return h('div', { style: 'margin-bottom:14px' }, panel(tr(en, es), h('p', { class: 'small muted', style: 'margin-top:0' }, tr(...IMPLICATIONS[g])), h('div', { class: 'cards' }, list.map((i) => h('a', { class: 'card', href: `#/macro/${i.id}` },
+      return h('div', { style: 'margin-bottom:14px' }, panel(tr(en, es), h('p', { class: 'small muted', style: 'margin-top:0' }, tr(...IMPLICATIONS[g])), h('div', { class: 'cards' }, list.map((i) => h('a', { class: 'card', href: `/macro/${i.id}` },
         h('div', { class: 'kpi' }, h('span', { class: 'k' }, i.name), h('span', { class: 'v' }, i.latest ? fmtNum(i.latest.value, 2) : '—'),
           i.latest ? h('span', { class: `d ${signClass(i.change)}` }, `${t('previous')}: ${i.previous ? fmtNum(i.previous.value, 2) : '—'}  (${i.change >= 0 ? '+' : ''}${fmtNum(i.change, 2)})`) : null,
           h('span', { class: 'd muted' }, `${i.unit || ''} · ${i.frequency || ''}`)),
@@ -228,7 +229,7 @@ async function macroDetail(id) {
   const lang = getLang();
   const root = h('div');
   const box = h('div');
-  root.append(pageHead(id, h('a', { href: '#/macro' }, '← Macro')), box);
+  root.append(pageHead(id, h('a', { href: '/macro' }, '← Macro')), box);
   let range = '5y';
   const draw = () => async(box, async () => {
     const [{ indicators }, s] = await Promise.all([api(`/api/macro/indicators?lang=${lang}`), api(`/api/macro/series?id=${encodeURIComponent(id)}&start=1990-01-01`)]);

@@ -254,7 +254,7 @@ export async function range(env, from, to, { internal = false } = {}) {
 export async function persist(env) {
   if (!env.DB) return { skipped: true };
   const y = new Date().getUTCFullYear();
-  const r = await range(env, `${y}-01-01`, `${y + 1}-12-31`);
+  const r = await range(env, `${y}-01-01`, `${y + 1}-12-31`, { internal: true });
   const now = new Date().toISOString();
   let moved = 0;
   for (let i = 0; i < r.events.length; i += 50) {

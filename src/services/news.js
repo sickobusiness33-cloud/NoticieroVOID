@@ -42,10 +42,12 @@ export function filterItems(items, { lang, category, asset, country, q, limit = 
 
 export async function archive(env, items) {
   if (!env.DB) return { stored: 0, skipped: 'D1 binding DB not configured' };
-  const stmt = env.DB.prepare(`INSERT INTO articles (id, url, title, excerpt, source, lang, published_at, categories, assets, countries, official, ingested_at)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON CONFLICT(id) DO NOTHING`);
+  // Existing rows are only rewritten to backfill a missing image (keeps D1 writes low).
+  const stmt = env.DB.prepare(`INSERT INTO articles (id, url, title, excerpt, source, lang, published_at, categories, assets, countries, official, ingested_at, image)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+    ON CONFLICT(id) DO UPDATE SET image = excluded.image WHERE articles.image IS NULL AND excluded.image IS NOT NULL`);
   const now = new Date().toISOString();
-  const batch = items.map((i) => stmt.bind(i.id, i.url, i.title, i.excerpt, i.source, i.lang, i.publishedAt, i.categories.join(','), i.assets.join(','), i.countries.join(','), i.official ? 1 : 0, now));
+  const batch = items.map((i) => stmt.bind(i.id, i.url, i.title, i.excerpt, i.source, i.lang, i.publishedAt, i.categories.join(','), i.assets.join(','), i.countries.join(','), i.official ? 1 : 0, now, i.image || null));
   let stored = 0;
   for (let k = 0; k < batch.length; k += 50) {
     const res = await env.DB.batch(batch.slice(k, k + 50));
@@ -70,8 +72,19 @@ export async function searchArchive(env, { q, lang, from, to, limit = 50, offset
   return results.map((r) => ({ ...r, categories: r.categories ? r.categories.split(',') : [], assets: r.assets ? r.assets.split(',') : [], countries: r.countries ? r.countries.split(',') : [] }));
 }
 
+const COLS = 'id, url, title, excerpt, source, lang, published_at AS publishedAt, categories, assets, countries, official, image';
+const fromRow = (row) => ({ ...row, official: !!row.official, image: row.image || null, alsoReportedBy: [], categories: row.categories ? row.categories.split(',') : [], assets: row.assets ? row.assets.split(',') : [], countries: row.countries ? row.countries.split(',') : [] });
+
 export async function getArchived(env, id) {
-  const row = await env.DB.prepare('SELECT id, url, title, excerpt, source, lang, published_at AS publishedAt, categories, assets, countries, official FROM articles WHERE id = ?').bind(id).first();
-  if (!row) return null;
-  return { ...row, official: !!row.official, image: null, alsoReportedBy: [], categories: row.categories ? row.categories.split(',') : [], assets: row.assets ? row.assets.split(',') : [], countries: row.countries ? row.countries.split(',') : [] };
+  const row = await env.DB.prepare(`SELECT ${COLS} FROM articles WHERE id = ?`).bind(id).first();
+  return row ? fromRow(row) : null;
+}
+
+// Most recent archived items (server-rendered front/section pages read D1, not the feeds).
+export async function recentArchived(env, { limit = 200, sinceHours = 72 } = {}) {
+  if (!env.DB) return [];
+  const since = new Date(Date.now() - sinceHours * 3600e3).toISOString();
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM articles WHERE published_at >= ? AND published_at <= ? ORDER BY published_at DESC LIMIT ?`)
+    .bind(since, new Date(Date.now() + 3600e3).toISOString(), Math.min(500, limit)).all();
+  return results.map(fromRow);
 }
