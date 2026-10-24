@@ -75,17 +75,20 @@ function staticBody(path) {
   return `<h1>${esc(p.en)}</h1>${STATIC_PAGES[path].en.map(([h, ps, id]) => `${h ? `<h2${id ? ` id="${id}"` : ''}>${esc(h)}</h2>` : ''}${ps.map((x) => `<p>${esc(x)}</p>`).join('')}`).join('')}${footerLinks()}`;
 }
 
+// Uses the SPA article's layout classes so the main image keeps its size when the app takes
+// over (otherwise the browser records a second, later Largest Contentful Paint).
 function articleBody(item, story, related) {
   const sec = sectionOf(item);
   const ok = story?.status === 'ok';
-  return `<nav class="crumbs"><a href="/">Front page</a>${sec ? ` › <a href="${sectionPath(sec.key)}">${esc(sec.en)}</a>` : ''}</nav>
-<article><h1>${esc(item.title)}</h1>${item.excerpt ? `<p>${esc(item.excerpt)}</p>` : ''}
-<p><b>${esc(item.source)}</b> · <time datetime="${esc(item.publishedAt)}">${esc(fmtDate(item.publishedAt, item.lang))}</time></p>
-${item.image ? `<figure><img src="${esc(item.image)}" alt="${esc(item.title)}" referrerpolicy="no-referrer" fetchpriority="high"><figcaption>Image: ${esc(item.source)}</figcaption></figure>` : ''}
-${ok ? `<section><h2>${item.lang === 'es' ? 'Informe VOID' : 'VOID Report'}${story.headline ? `: ${esc(story.headline)}` : ''}</h2>${story.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}
-<p><small>${item.lang === 'es' ? 'Redactado con IA por Noticiero VOID a partir de los hechos publicados por' : 'Written with AI by Noticiero VOID from facts reported by'} ${story.sources.map((s) => esc(s.source)).join(', ')}. <a href="/editorial-policy#ai">${item.lang === 'es' ? 'Cómo lo hacemos' : 'How we do it'}</a> · <time datetime="${esc(story.generatedAt)}">${esc(fmtDate(story.generatedAt, item.lang))}</time></small></p></section>` : ''}
-<p><a href="${esc(item.url)}" rel="noopener">${item.lang === 'es' ? 'Leer la noticia completa en' : 'Read the full story at'} ${esc(item.source)}</a></p></article>
-${related.length ? `<section><h2>${item.lang === 'es' ? 'Relacionadas' : 'Related'}</h2>${list(related)}</section>` : ''}${footerLinks()}`;
+  const es = item.lang === 'es';
+  return `<div class="paper"><nav class="crumbs small"><a href="/">Front page</a>${sec ? ` › <a href="${sectionPath(sec.key)}">${esc(sec.en)}</a>` : ''}</nav>
+<div class="art-grid"><article class="art">${sec ? `<span class="np-kicker">${esc(sec.en)}</span>` : ''}<h1 class="art-title">${esc(item.title)}</h1>${item.excerpt ? `<p class="art-dek">${esc(item.excerpt)}</p>` : ''}
+<div class="np-by"><b>${esc(item.source)}</b><time datetime="${esc(item.publishedAt)}">${esc(fmtDate(item.publishedAt, item.lang))}</time></div>
+${item.image ? `<figure class="pic art-pic"><img class="art-pic" src="${esc(item.image)}" alt="${esc(item.title)}" referrerpolicy="no-referrer" fetchpriority="high" decoding="async"><figcaption>Image: ${esc(item.source)}</figcaption></figure>` : ''}
+${ok ? `<section class="art-story"><h2 class="art-story-title">${es ? 'Informe VOID' : 'VOID Report'}${story.headline ? `: ${esc(story.headline)}` : ''}</h2><div class="art-body">${story.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+<p class="small muted">${es ? 'Redactado con IA por Noticiero VOID a partir de los hechos publicados por' : 'Written with AI by Noticiero VOID from facts reported by'} ${story.sources.map((s) => esc(s.source)).join(', ')}. <a href="/editorial-policy#ai">${es ? 'Cómo lo hacemos' : 'How we do it'}</a> · <time datetime="${esc(story.generatedAt)}">${esc(fmtDate(story.generatedAt, item.lang))}</time></p></section>` : ''}
+<div class="art-source"><a href="${esc(item.url)}" rel="noopener">${es ? 'Leer la noticia completa en' : 'Read the full story at'} ${esc(item.source)}</a></div></article>
+<aside class="art-side">${related.length ? `<h2 class="np-sec-title"><span>${es ? 'Relacionadas' : 'Related'}</span></h2>${list(related)}` : ''}</aside></div>${footerLinks()}</div>`;
 }
 
 // ---------- page resolution ----------
@@ -185,7 +188,7 @@ export async function renderPage(request, env, shellResponse) {
     .on('title', { element(el) { el.setInnerContent(page.title); } })
     .on('meta[name="description"]', { element(el) { el.setAttribute('content', page.description); } })
     .on('head', { element(el) { el.append(head, { html: true }); } })
-    .on('main#app', { element(el) { el.setInnerContent(`<div class="ssr">${page.body}</div>`, { html: true }); } })
+    .on('main#app', { element(el) { el.setInnerContent(`<div class="ssr${page.type === 'article' ? ' ssr-wide' : ''}">${page.body}</div>`, { html: true }); } })
     .transform(shellResponse);
   return { response: rewritten, status: page.status };
 }

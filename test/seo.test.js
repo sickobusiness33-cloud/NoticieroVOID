@@ -70,7 +70,7 @@ test('article with a VOID Report is indexable with NewsArticle', async () => {
   assert.equal(p.status, 200);
   assert.equal(p.index, true);
   assert.ok(p.ld.some((x) => x['@type'] === 'NewsArticle'));
-  assert.match(p.body, /<h1>Fed holds rates/);
+  assert.match(p.body, /<h1[^>]*>Fed holds rates/);
   assert.equal((p.body.match(/<h1/g) || []).length, 1);
   assert.match(p.body, /Read the full story at Pub/);
   assert.match(p.description, /^US policymakers/);

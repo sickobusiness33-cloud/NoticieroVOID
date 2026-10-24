@@ -169,7 +169,7 @@ const routes = {
     // the D1 archive instead of waiting; the feed refresh continues in the background.
     const feed = news.latest(env);
     ctx.waitUntil(feed.catch(() => null));
-    const r = env.DB ? await Promise.race([feed, new Promise((res) => setTimeout(() => res(null), 2500))]).catch(() => null) : await feed;
+    const r = env.DB ? await Promise.race([feed, new Promise((res) => setTimeout(() => res(null), 1200))]).catch(() => null) : await feed;
     let item = r?.value.items.find((i) => i.id === id);
     if (!item && env.DB) item = await news.getArchived(env, id);
     if (!item) return apiError(404, 'not_found', 'Article not found (it may have left the current feed window).');

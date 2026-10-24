@@ -150,8 +150,8 @@ export async function article({ params }) {
     const storyRes = api(`/api/news/story?id=${encodeURIComponent(id)}&lang=${getLang() === 'es' ? 'es' : 'en'}`).then((s) => ({ s }), (e) => ({ e }));
     const later = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
     const [d, uni, early] = await Promise.all([api(`/api/news/item?id=${encodeURIComponent(id)}`),
-      Promise.race([api('/api/assets/universe'), later(2500, { assets: {} })]).catch((e) => ({ error: e.message, assets: {} })),
-      Promise.race([storyRes, later(1500, null)])]);
+      Promise.race([api('/api/assets/universe'), later(1500, { assets: {} })]).catch((e) => ({ error: e.message, assets: {} })),
+      Promise.race([storyRes, later(1200, null)])]);
     const it = d.item;
     document.title = `${it.title} · Noticiero VOID`;
     const A = uni.assets || {};

@@ -427,6 +427,8 @@ label.f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; colo
 /* Server-rendered first paint (replaced by the SPA once it boots) and static pages. */
 .ssr { max-width: 860px; margin: 0 auto; padding: 18px 0; line-height: 1.6; }
 .ssr h1 { font: 700 30px/1.2 var(--serif, Georgia, serif); margin: 8px 0 12px; }
+.ssr.ssr-wide { max-width: none; padding: 0; }
+.ssr .art-title { font: 800 clamp(28px, 4vw, 46px)/1.12 var(--serif); }
 .ssr h2 { font-size: 18px; margin: 22px 0 8px; }
 .ssr-list { padding-left: 18px; }
 .ssr-list li { margin: 6px 0; }
