@@ -64,12 +64,31 @@ async function render() {
   const first = main.querySelector('.ssr');
   try {
     const node = def ? await def[2]({ params, query, app }) : h('div', { class: 'error-box' }, h('h1', null, t('not_found')), h('a', { href: '/' }, t('nav_home')));
-    if (seq === renderSeq) main.replaceChildren(node);
+    if (seq !== renderSeq) return;
+    if (first) {
+      // First load: keep the server-rendered page visible until the view has its data,
+      // then swap once (avoids a spinner flash and a second paint of the main image).
+      node.hidden = true;
+      main.append(node);
+      await ready(node);
+      if (seq === renderSeq) { first.remove(); node.hidden = false; } else node.remove();
+    } else main.replaceChildren(node);
   } catch (e) {
     if (seq === renderSeq) main.replaceChildren(h('div', { class: 'error-box' }, e.message));
   }
   document.getElementById('nav').classList.remove('open');
   if (!first) window.scrollTo(0, 0);
+}
+
+// A view is ready when no main loader is pending (the AI story box may keep loading), max 6 s.
+function ready(node) {
+  const done = () => ![...node.querySelectorAll('.loading')].some((l) => !l.closest('.art-story'));
+  if (done()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const mo = new MutationObserver(() => { if (done()) { mo.disconnect(); resolve(); } });
+    mo.observe(node, { childList: true, subtree: true });
+    setTimeout(() => { mo.disconnect(); resolve(); }, 6000);
+  });
 }
 
 // Same-origin page links are handled in place (no full reload); API links, new tabs,
