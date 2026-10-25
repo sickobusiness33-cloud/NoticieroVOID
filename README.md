@@ -218,3 +218,11 @@ Setup before billing can go live:
 
 Until `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` exist the PRO page says subscriptions are not open and
 the checkout API returns 503; nothing can be charged.
+
+## Feed refresh (sharded)
+
+Workers limit outbound requests per invocation (50 on the free plan), and VOID reads more feeds
+than that. The every-minute cron refreshes feeds in shards of 12 (`src/services/news.js`
+`refreshShard`) at minutes :00–:04 of each quarter hour, stores the parsed items in D1
+`feed_cache` and archives them. Page and API requests build the live news set from `feed_cache`
+(one D1 read, no outbound requests). `POST /api/admin/ingest?shard=N` refreshes one shard on demand.

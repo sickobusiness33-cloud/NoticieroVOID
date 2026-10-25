@@ -1,4 +1,4 @@
-// News pipeline: fetch feeds in parallel → parse → enrich → de-duplicate → rank.
+// News pipeline: fetch feeds (in cron shards) → parse → enrich → de-duplicate → rank.
 // Optional D1 archive (binding DB) persists items for historical search; inserts are
 // idempotent (primary key = hash of canonical URL) so cron re-runs never duplicate.
 
@@ -6,24 +6,72 @@ import { FEEDS, fetchFeed, NO_HOTLINK_IMAGES } from '../adapters/sources.js';
 import { parseFeed, dedupe, enrich, hashId, canonicalUrl } from '../../public/js/shared/news.js';
 import { cached, log } from '../lib/core.js';
 
-export async function collect(env) {
-  const results = await Promise.allSettled(FEEDS.map(async (f) => {
-    const xml = await fetchFeed(f);
-    return parseFeed(xml).slice(0, 30).map((it) => ({
-      ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official, topics: f.topics || [], tier: f.tier || 0, feedCountry: f.country || null,
-      image: it.image && !NO_HOTLINK_IMAGES.test(new URL(it.image).host) ? it.image : null,
-    }));
+// Parsed items of one feed (headline, short excerpt, link, credited image).
+async function fetchOne(f) {
+  const xml = await fetchFeed(f);
+  return parseFeed(xml).slice(0, 30).map((it) => ({
+    ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official, topics: f.topics || [], tier: f.tier || 0, feedCountry: f.country || null,
+    image: it.image && !NO_HOTLINK_IMAGES.test(new URL(it.image).host) ? it.image : null,
   }));
-  const feedStatus = FEEDS.map((f, i) => ({ id: f.id, source: f.source, lang: f.lang, ok: results[i].status === 'fulfilled', count: results[i].value?.length ?? 0, error: results[i].reason?.message }));
-  const all = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+}
+
+// enrich → de-duplicate → stable ids → rank.
+async function finish(all) {
   const items = enrich(dedupe(all));
   for (const it of items) it.id = await hashId(canonicalUrl(it.url));
   items.sort((a, b) => b.score - a.score);
-  return { items, feedStatus };
+  return items;
+}
+
+// Fetches every feed in one invocation. Only used without D1 (local tools); with many feeds
+// it exceeds the Workers per-invocation subrequest limit, so production uses feed shards.
+export async function collect(env) {
+  const results = await Promise.allSettled(FEEDS.map(fetchOne));
+  const feedStatus = FEEDS.map((f, i) => ({ id: f.id, source: f.source, lang: f.lang, ok: results[i].status === 'fulfilled', count: results[i].value?.length ?? 0, error: results[i].reason?.message }));
+  return { items: await finish(results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))), feedStatus };
+}
+
+// ---- sharded refresh (cron) ----
+// ≤12 feeds per run: at most 24 outbound requests even with one retry each, which leaves room
+// for the whale-alert scan in the same minute under the 50-subrequest limit.
+export const SHARD_SIZE = 12;
+export const shardCount = () => Math.ceil(FEEDS.length / SHARD_SIZE);
+export const shardFeeds = (n) => FEEDS.slice(n * SHARD_SIZE, (n + 1) * SHARD_SIZE);
+
+export async function refreshShard(env, n) {
+  const feeds = shardFeeds(n);
+  const results = await Promise.allSettled(feeds.map(fetchOne));
+  const now = new Date().toISOString();
+  // A failed fetch keeps the previous items (marked not ok) instead of emptying the feed.
+  const stmt = env.DB.prepare(`INSERT INTO feed_cache (feed_id, ok, count, error, items, fetched_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+    ON CONFLICT(feed_id) DO UPDATE SET ok = excluded.ok, error = excluded.error, fetched_at = excluded.fetched_at,
+      count = CASE WHEN excluded.ok = 1 THEN excluded.count ELSE feed_cache.count END,
+      items = CASE WHEN excluded.ok = 1 THEN excluded.items ELSE feed_cache.items END`);
+  await env.DB.batch(feeds.map((f, i) => {
+    const r = results[i];
+    return r.status === 'fulfilled' ? stmt.bind(f.id, 1, r.value.length, null, JSON.stringify(r.value), now) : stmt.bind(f.id, 0, 0, String(r.reason?.message || 'failed').slice(0, 300), '[]', now);
+  }));
+  const items = await finish(results.flatMap((r) => (r.status === 'fulfilled' ? r.value : [])));
+  const stored = await archive(env, items);
+  return { shard: n, feeds: feeds.length, ok: results.filter((r) => r.status === 'fulfilled').length, seen: items.length, ...stored };
+}
+
+// Builds the live news set from the per-feed cache (one D1 read, no outbound requests).
+export async function collectFromCache(env) {
+  const { results } = await env.DB.prepare('SELECT feed_id, ok, count, error, items, fetched_at FROM feed_cache').all();
+  if (!results.length) return collect(env); // first deploy, before any shard has run
+  const rows = Object.fromEntries(results.map((r) => [r.feed_id, r]));
+  const known = new Set(FEEDS.map((f) => f.id));
+  const all = results.filter((r) => known.has(r.feed_id)).flatMap((r) => JSON.parse(r.items || '[]'));
+  const feedStatus = FEEDS.map((f) => {
+    const r = rows[f.id];
+    return { id: f.id, source: f.source, lang: f.lang, ok: !!r?.ok, count: r?.count ?? 0, error: r ? r.error : 'not fetched yet', fetchedAt: r?.fetched_at || null };
+  });
+  return { items: await finish(all), feedStatus };
 }
 
 export async function latest(env) {
-  return cached(env, 'news:v3', 300, () => collect(env));
+  return cached(env, 'news:v4', 120, () => (env.DB ? collectFromCache(env) : collect(env)));
 }
 
 export function filterItems(items, { lang, category, asset, country, q, limit = 60, sort = 'relevance' }) {

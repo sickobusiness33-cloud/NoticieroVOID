@@ -87,3 +87,27 @@ test('major outlets get extra ranking weight; state media is identified', () => 
   assert.equal(isStateMedia('Xinhua'), true);
   assert.equal(isStateMedia('DW'), false);
 });
+
+import { shardCount, shardFeeds, SHARD_SIZE, collectFromCache } from '../src/services/news.js';
+import { FEEDS } from '../src/adapters/sources.js';
+test('feed shards cover every feed once and stay under the subrequest budget', () => {
+  const ids = Array.from({ length: shardCount() }, (_, n) => shardFeeds(n).map((f) => f.id)).flat();
+  assert.equal(ids.length, FEEDS.length);
+  assert.equal(new Set(ids).size, FEEDS.length);
+  assert.ok(SHARD_SIZE * 2 <= 30); // one retry per feed still leaves room for other cron work
+  assert.ok(shardCount() <= 7); // all shards run within the first minutes of each quarter hour
+});
+
+test('live news is rebuilt from the per-feed cache without fetching', async () => {
+  const now = new Date().toISOString();
+  const row = (feed_id, items, ok = 1) => ({ feed_id, ok, count: items.length, error: ok ? null : 'HTTP 500', items: JSON.stringify(items), fetched_at: now });
+  const env = { DB: { prepare: () => ({ all: async () => ({ results: [
+    row('dw-en', [{ title: 'Germany exports fall', url: 'https://dw.com/a', excerpt: 'Exports fell.', publishedAt: now, source: 'DW', lang: 'en', tier: 1, topics: [] }]),
+    row('coindesk', [{ title: 'Bitcoin ETF inflows rise', url: 'https://coindesk.com/b', excerpt: 'Inflows rose.', publishedAt: now, source: 'CoinDesk', lang: 'en', topics: [] }], 0),
+  ] }) }) } };
+  const r = await collectFromCache(env);
+  assert.equal(r.items.length, 2); // a failed refresh keeps the previous items
+  assert.ok(r.items.every((i) => /^[a-f0-9]{20}$/.test(i.id)));
+  assert.equal(r.feedStatus.find((f) => f.id === 'coindesk').ok, false);
+  assert.equal(r.feedStatus.find((f) => f.id === 'nyt-business').error, 'not fetched yet');
+});

@@ -396,8 +396,10 @@ const routes = {
 
   'POST /api/admin/ingest': async (req, env) => {
     requireAdmin(req, env);
-    const { items, ...r } = await ingest(env);
-    return json(r);
+    if (!env.DB) { const { items, ...r } = await ingest(env); return json(r); }
+    const shard = Number(q(new URL(req.url), 'shard', 0));
+    if (!Number.isInteger(shard) || shard < 0 || shard >= news.shardCount()) return apiError(400, 'bad_shard', `shard must be 0–${news.shardCount() - 1}`);
+    return json(await news.refreshShard(env, shard));
   },
 };
 
@@ -509,7 +511,7 @@ export default {
 
   // Cron: news ingestion every 15 min; AI briefing pre-generation every 6h (if configured).
   async scheduled(event, env, ctx) {
-    // Every minute: persistent whale alerts. News ingestion runs on the quarter hour.
+    // Every minute: persistent whale alerts. Feed shards run in the first minutes of each quarter hour.
     if (event.cron === '* * * * *') {
       if (env.DB) {
         try { const r = await alerts.scan(env); log('info', 'cron_alert_scan', { scanned: r.scanned, fired: r.report.reduce((a, x) => a + (x.fired || 0), 0) }); }
@@ -527,12 +529,19 @@ export default {
         } catch (e) { log('error', 'cron_story_pregen_failed', { error: e.message }); }
         return;
       }
-      if (minute % 15 !== 0) return;
+      // Publisher feeds: one shard per minute at :00–:04 (and :15, :30, :45), so every feed
+      // refreshes every 15 minutes without exceeding the per-invocation subrequest limit.
+      const shard = minute % 15;
+      if (env.DB && shard < news.shardCount()) {
+        try { log('info', 'cron_feed_shard', await news.refreshShard(env, shard)); }
+        catch (e) { log('error', 'cron_feed_shard_failed', { shard, error: e.message }); }
+      }
+      return;
     }
-    try {
-      const r = await ingest(env);
-      log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored });
-    } catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
+    if (!env.DB) {
+      try { const r = await ingest(env); log('info', 'cron_ingest', { cron: event.cron, seen: r.seen, stored: r.stored }); }
+      catch (e) { log('error', 'cron_ingest_failed', { error: e.message }); }
+    }
     // Warm the FRED cache (stored in KV when bound) so user requests rarely hit FRED directly.
     if (event.cron === '5 */6 * * *') {
       ctx.waitUntil(cal2.persist(env).then((r) => log('info', 'cron_calendar_persist', r)).catch((e) => log('error', 'cron_calendar_persist_failed', { error: e.message })));
