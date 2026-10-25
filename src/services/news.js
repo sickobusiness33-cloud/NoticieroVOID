@@ -10,7 +10,7 @@ export async function collect(env) {
   const results = await Promise.allSettled(FEEDS.map(async (f) => {
     const xml = await fetchFeed(f);
     return parseFeed(xml).slice(0, 30).map((it) => ({
-      ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official, topics: f.topics || [],
+      ...it, source: f.source, feedId: f.id, lang: f.lang, official: !!f.official, topics: f.topics || [], tier: f.tier || 0, feedCountry: f.country || null,
       image: it.image && !NO_HOTLINK_IMAGES.test(new URL(it.image).host) ? it.image : null,
     }));
   }));

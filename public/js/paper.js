@@ -7,6 +7,7 @@ import { t, tr, getLang } from './i18n.js';
 import { h, api, async, metaLine, statusBadge, fmtNum, fmtPct, fmtTime, ago, signClass, store, persist } from './ui.js';
 import { adSlot } from './ads.js';
 import { UNIVERSE } from './shared/impact.js';
+import { isStateMedia } from './shared/news.js';
 import { SECTIONS, inSection, articlePath, sectionPath, frontSections, primarySection, mixTopics, capPerTopic } from './shared/seo.js';
 
 const CAT_LABEL = {
@@ -17,6 +18,8 @@ const CAT_LABEL = {
 };
 const kicker = (it) => tr(...(CAT_LABEL[it.categories?.find((c) => c !== 'general') || 'general'] || CAT_LABEL.general));
 const href = (it) => articlePath(it);
+// Government-controlled outlets are labelled so readers can weigh the source.
+const stateTag = (it) => (isStateMedia(it.source) ? h('span', { class: 'tag state', title: tr('Government-controlled outlet', 'Medio controlado por el Gobierno') }, tr('STATE MEDIA', 'MEDIO ESTATAL')) : null);
 
 // Publisher thumbnail, or original VOID artwork when the feed carries no image.
 // The lead image is the page's largest paint: load it eagerly at high priority.
@@ -31,7 +34,7 @@ function photo(it, cls = '', eager = false) {
 function byline(it) {
   return h('div', { class: 'np-by' },
     it.breaking ? h('span', { class: 'tag hot' }, t('breaking')) : null,
-    h('b', null, it.source), h('span', { title: it.publishedAt }, ago(it.publishedAt)),
+    h('b', null, it.source), stateTag(it), h('span', { title: it.publishedAt }, ago(it.publishedAt)),
     it.alsoReportedBy?.length ? h('span', { class: 'muted' }, `+${it.alsoReportedBy.length} ${tr('sources', 'fuentes')}`) : null);
 }
 
@@ -230,7 +233,7 @@ export async function article({ params }) {
           h('span', { class: 'np-kicker' }, kicker(it)),
           h('h1', { class: 'art-title' }, it.title),
           it.excerpt ? h('p', { class: 'art-dek' }, it.excerpt) : null,
-          h('div', { class: 'np-by' }, h('b', null, it.source), h('span', null, fmtTime(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase()), it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null),
+          h('div', { class: 'np-by' }, h('b', null, it.source), stateTag(it), h('span', null, fmtTime(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase()), it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null),
           adSlot('leaderboard'),
           photo(it, 'art-pic', true),
           h('div', { class: 'controls art-actions' }, saveBtn, aiBtn, h('button', { class: 'btn', onclick: (e) => { navigator.clipboard?.writeText(location.href); e.currentTarget.textContent = tr('Link copied', 'Enlace copiado'); } }, tr('Copy link', 'Copiar enlace'))),

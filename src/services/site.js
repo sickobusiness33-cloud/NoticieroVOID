@@ -8,6 +8,7 @@ import { SITE_NAME, PAGES, SECTIONS, ID_RE, frontSections, mixTopics, capPerTopi
 import { STATIC_PAGES } from '../../public/js/shared/pages.js';
 import { CATALOG } from '../adapters/fred.js';
 import * as news from './news.js';
+import { isStateMedia } from '../../public/js/shared/news.js';
 import { getStory } from './story.js';
 import { log } from '../lib/core.js';
 
@@ -83,7 +84,7 @@ function articleBody(item, story, related) {
   const es = item.lang === 'es';
   return `<div class="paper"><nav class="crumbs small"><a href="/">Front page</a>${sec ? ` › <a href="${sectionPath(sec.key)}">${esc(sec.en)}</a>` : ''}</nav>
 <div class="art-grid"><article class="art">${sec ? `<span class="np-kicker">${esc(sec.en)}</span>` : ''}<h1 class="art-title">${esc(item.title)}</h1>${item.excerpt ? `<p class="art-dek">${esc(item.excerpt)}</p>` : ''}
-<div class="np-by"><b>${esc(item.source)}</b><time datetime="${esc(item.publishedAt)}">${esc(fmtDate(item.publishedAt, item.lang))}</time></div>
+<div class="np-by"><b>${esc(item.source)}</b>${isStateMedia(item.source) ? `<span class="tag state">${item.lang === 'es' ? 'MEDIO ESTATAL' : 'STATE MEDIA'}</span>` : ''}<time datetime="${esc(item.publishedAt)}">${esc(fmtDate(item.publishedAt, item.lang))}</time></div>
 ${item.image ? `<figure class="pic art-pic"><img class="art-pic" src="${esc(item.image)}" alt="${esc(item.title)}" referrerpolicy="no-referrer" fetchpriority="high" decoding="async"><figcaption>Image: ${esc(item.source)}</figcaption></figure>` : ''}
 ${ok ? `<section class="art-story"><h2 class="art-story-title">${es ? 'Informe VOID' : 'VOID Report'}${story.headline ? `: ${esc(story.headline)}` : ''}</h2><div class="art-body">${story.paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
 <p class="small muted">${es ? 'Redactado con IA por Noticiero VOID a partir de los hechos publicados por' : 'Written with AI by Noticiero VOID from facts reported by'} ${story.sources.map((s) => esc(s.source)).join(', ')}. <a href="/editorial-policy#ai">${es ? 'Cómo lo hacemos' : 'How we do it'}</a> · <time datetime="${esc(story.generatedAt)}">${esc(fmtDate(story.generatedAt, item.lang))}</time></p></section>` : ''}

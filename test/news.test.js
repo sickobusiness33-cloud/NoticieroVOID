@@ -79,3 +79,11 @@ test('strips "read the full story" boilerplate from excerpts', async () => {
   const [i] = pf('<rss><item><title>T</title><link>https://x.com/t</link><description>Real summary here. Read the full story on CryptoSlate Understand more</description></item></rss>');
   assert.equal(i.excerpt, 'Real summary here.');
 });
+
+import { relevance, isStateMedia } from '../public/js/shared/news.js';
+test('major outlets get extra ranking weight; state media is identified', () => {
+  const base = { publishedAt: new Date().toISOString(), categories: [] };
+  assert.ok(relevance({ ...base, tier: 1 }) > relevance(base));
+  assert.equal(isStateMedia('Xinhua'), true);
+  assert.equal(isStateMedia('DW'), false);
+});

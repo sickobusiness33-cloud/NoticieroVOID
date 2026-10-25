@@ -38,6 +38,29 @@ export const FEEDS = [
   { id: 'blockworks', source: 'Blockworks', url: 'https://blockworks.co/feed', lang: 'en', topics: ['web3'] },
   { id: 'thedefiant', source: 'The Defiant', url: 'https://thedefiant.io/api/feed', lang: 'en', topics: ['web3'] },
   { id: 'seekingalpha', source: 'Seeking Alpha', url: 'https://seekingalpha.com/market_currents.xml', lang: 'en', topics: ['stocks'] },
+  // Major international outlets (English/Spanish editions). tier: 1 = extra weight in ranking.
+  // Germany
+  { id: 'dw-en', source: 'DW', url: 'https://rss.dw.com/rdf/rss-en-all', lang: 'en', tier: 1, country: 'DE' },
+  { id: 'dw-es', source: 'DW Español', url: 'https://rss.dw.com/rdf/rss-sp-all', lang: 'es', tier: 1, country: 'DE' },
+  { id: 'spiegel-intl', source: 'Der Spiegel', url: 'https://www.spiegel.de/international/index.rss', lang: 'en', tier: 1, country: 'DE' },
+  // United States
+  { id: 'nyt-business', source: 'The New York Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', lang: 'en', tier: 1, country: 'US' },
+  { id: 'wsj-markets', source: 'The Wall Street Journal', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml', lang: 'en', tier: 1, country: 'US' },
+  { id: 'npr-business', source: 'NPR', url: 'https://feeds.npr.org/1006/rss.xml', lang: 'en', tier: 1, country: 'US' },
+  // China (CGTN is state media and is labelled as such on the page)
+  { id: 'cgtn-business', source: 'CGTN', url: 'https://www.cgtn.com/subscribe/rss/section/business.xml', lang: 'en', tier: 1, country: 'CN' },
+  { id: 'scmp-china', source: 'South China Morning Post', url: 'https://www.scmp.com/rss/4/feed/', lang: 'en', tier: 1, country: 'CN' },
+  { id: 'scmp-business', source: 'South China Morning Post', url: 'https://www.scmp.com/rss/92/feed/', lang: 'en', tier: 1, country: 'CN' },
+  // North Korea (KCNA and Rodong Sinmun are not reachable from outside the country)
+  { id: 'yonhap-nk', source: 'Yonhap', url: 'https://en.yna.co.kr/RSS/nk.xml', lang: 'en', tier: 1, country: 'KP', topics: ['geopolitics'] },
+  { id: 'nknews', source: 'NK News', url: 'https://www.nknews.org/feed/', lang: 'en', tier: 1, country: 'KP', topics: ['geopolitics'] },
+  // Central and Western Europe
+  { id: 'france24-en', source: 'France 24', url: 'https://www.france24.com/en/business/rss', lang: 'en', tier: 1, country: 'EU' },
+  { id: 'france24-es', source: 'France 24', url: 'https://www.france24.com/es/econom%C3%ADa/rss', lang: 'es', tier: 1, country: 'EU' },
+  { id: 'euronews-en', source: 'Euronews', url: 'https://www.euronews.com/rss?level=vertical&name=business', lang: 'en', tier: 1, country: 'EU' },
+  { id: 'euronews-es', source: 'Euronews', url: 'https://es.euronews.com/rss?level=theme&name=business', lang: 'es', tier: 1, country: 'EU' },
+  { id: 'lemonde-en', source: 'Le Monde', url: 'https://www.lemonde.fr/en/economy/rss_full.xml', lang: 'en', tier: 1, country: 'EU' },
+  { id: 'elpais-economia', source: 'El País', url: 'https://elpais.com/rss/economia/portada.xml', lang: 'es', tier: 1, country: 'EU' },
   // Spanish
   { id: 'xataka', source: 'Xataka', url: 'https://www.xataka.com/feedburner.xml', lang: 'es', topics: ['technology'] },
   { id: 'genbeta', source: 'Genbeta', url: 'https://www.genbeta.com/feedburner.xml', lang: 'es', topics: ['technology'] },

@@ -1,5 +1,6 @@
 // Views: newsroom, command center, macro, intel feed, AI analyst, calendar, saved, status.
 import { articlePath } from './shared/seo.js';
+import { isStateMedia } from './shared/news.js';
 import { t, tr, getLang } from './i18n.js';
 import { h, api, async, panel, metaLine, statusBadge, fmtNum, fmtUsd, fmtPct, fmtCompact, fmtTime, ago, signClass, table, segmented, store, persist } from './ui.js';
 import { lineChart, sliceRange, bars } from './charts.js';
@@ -27,7 +28,7 @@ function storyNode(it, { excerpt = true, ai = true } = {}) {
   const saveBtn = h('button', { class: 'btn sm', onclick: (e) => toggleSave(it, e.currentTarget) }, isSaved ? t('saved_ok') : t('save'));
   const aiBtn = ai ? h('button', { class: 'btn sm', onclick: () => analyzeInto(it, box, aiBtn) }, t('analyze')) : null;
   return h('article', { class: 'story' },
-    h('div', { class: 'by' }, it.breaking ? h('span', { class: 'tag hot' }, t('breaking')) : null, it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null,
+    h('div', { class: 'by' }, it.breaking ? h('span', { class: 'tag hot' }, t('breaking')) : null, it.official ? h('span', { class: 'tag vio' }, tr('OFFICIAL', 'OFICIAL')) : null, isStateMedia(it.source) ? h('span', { class: 'tag state' }, tr('STATE MEDIA', 'MEDIO ESTATAL')) : null,
       h('b', null, it.source), h('span', { title: it.publishedAt }, ago(it.publishedAt)), h('span', { class: 'tag' }, it.lang.toUpperCase())),
     h('h3', null, h('a', { href: it.id ? articlePath(it) : it.url }, it.title)),
     excerpt && it.excerpt ? h('p', null, it.excerpt) : null,

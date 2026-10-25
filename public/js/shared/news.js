@@ -177,18 +177,20 @@ export function classify(item) {
   return {
     categories: categories.length ? categories : ['general'],
     assets: ASSET_RULES.filter(([, re]) => re.test(text)).map(([a]) => a),
-    countries: COUNTRY_RULES.filter(([, re]) => re.test(text)).map(([c]) => c),
+    countries: [...new Set([...COUNTRY_RULES.filter(([, re]) => re.test(text)).map(([c]) => c), ...(item.feedCountry ? [item.feedCountry] : [])])],
   };
 }
 
-// Transparent relevance score: recency decay + source weight + macro weight + corroboration.
+// Transparent relevance score: recency decay + macro weight + official + corroboration + major-outlet tier.
 export function relevance(item, now = Date.now()) {
   const ageH = item.publishedAt ? (now - Date.parse(item.publishedAt)) / 3600000 : 48;
   const recency = Math.exp(-Math.max(0, ageH) / 18);
   const macro = item.categories?.some((c) => ['central-banks', 'inflation', 'labor', 'growth', 'rates-bonds'].includes(c)) ? 0.25 : 0;
   const official = item.official ? 0.3 : 0;
   const corroboration = Math.min(0.3, (item.alsoReportedBy?.length || 0) * 0.1);
-  return +(recency + macro + official + corroboration).toFixed(4);
+  // Major international outlets (feed tier 1) get extra weight.
+  const tier = item.tier ? 0.2 : 0;
+  return +(recency + macro + official + corroboration + tier).toFixed(4);
 }
 
 export function isBreaking(item, now = Date.now()) {
@@ -211,3 +213,7 @@ export async function hashId(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].slice(0, 10).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+// Government-controlled outlets, labelled "State media" wherever their stories appear.
+export const STATE_MEDIA = new Set(['Xinhua', 'CGTN']);
+export const isStateMedia = (source) => STATE_MEDIA.has(source);
